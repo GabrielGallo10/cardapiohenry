@@ -1,0 +1,380 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  AdminProductForm,
+  type AdminProductFormState,
+} from "@/components/admin-product-form";
+import {
+  addCategoryPreset,
+  CATEGORY_PRESETS_UPDATED,
+  readCategoryPresets,
+} from "@/lib/client-data";
+import { useMenu } from "@/hooks/use-menu";
+import { formatMoney } from "@/lib/format";
+import type { MenuItem } from "@/lib/types";
+
+/** ~550KB em base64 — localStorage tem limite prático; use JPEG comprimido. */
+const MAX_IMAGE_DATA_URL_CHARS = 700_000;
+
+function IconPencil({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
+function IconTrash({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+const emptyForm: AdminProductFormState = {
+  name: "",
+  description: "",
+  price: 0,
+  category: "",
+  available: true,
+  imageUrl: "",
+};
+
+export default function AdminCardapioPage() {
+  const { items, upsert, remove } = useMenu();
+  const [editing, setEditing] = useState<
+    (MenuItem & { isNew?: boolean }) | null
+  >(null);
+  const [form, setForm] = useState<AdminProductFormState>(emptyForm);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [presetTick, setPresetTick] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const bump = () => setPresetTick((t) => t + 1);
+    window.addEventListener(CATEGORY_PRESETS_UPDATED, bump);
+    window.addEventListener("storage", bump);
+    return () => {
+      window.removeEventListener(CATEGORY_PRESETS_UPDATED, bump);
+      window.removeEventListener("storage", bump);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!deleteTarget) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDeleteTarget(null);
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [deleteTarget]);
+
+  const sorted = useMemo(
+    () => [...items].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    [items],
+  );
+
+  const suggestedCategories = useMemo(() => {
+    const s = new Set<string>();
+    for (const i of items) {
+      const c = i.category.trim();
+      if (c) s.add(c);
+    }
+    for (const c of readCategoryPresets()) {
+      if (c) s.add(c);
+    }
+    return Array.from(s);
+  }, [items, presetTick]);
+
+  function openNew() {
+    setImageError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setEditing({ ...emptyForm, id: "", isNew: true } as MenuItem & {
+      isNew: boolean;
+    });
+    setForm({ ...emptyForm });
+  }
+
+  function openEdit(item: MenuItem) {
+    setImageError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setEditing({ ...item, isNew: false });
+    setForm({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      category: item.category,
+      available: item.available,
+      imageUrl: item.imageUrl ?? "",
+    });
+  }
+
+  function closeForm() {
+    setEditing(null);
+    setForm(emptyForm);
+    setImageError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleImageFile(file: File | null) {
+    setImageError(null);
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setImageError("Escolha um arquivo de imagem (JPG, PNG, WebP ou GIF).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === "string" ? reader.result : "";
+      if (url.length > MAX_IMAGE_DATA_URL_CHARS) {
+        setImageError(
+          "Imagem grande demais para salvar no navegador. Reduza o tamanho (ex.: ~800px) ou use JPEG mais comprimido.",
+        );
+        return;
+      }
+      setForm((f) => ({ ...f, imageUrl: url }));
+    };
+    reader.onerror = () =>
+      setImageError("Não foi possível ler o arquivo. Tente outra imagem.");
+    reader.readAsDataURL(file);
+  }
+
+  function handleRemoveImage() {
+    setForm((f) => ({ ...f, imageUrl: "" }));
+    setImageError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    const name = form.name.trim();
+    const category = form.category.trim();
+    if (!name || !category) return;
+    const id =
+      editing?.isNew || !form.id
+        ? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+        : form.id;
+    const trimmedUrl = form.imageUrl.trim();
+    upsert({
+      id,
+      name,
+      description: form.description.trim(),
+      price: Number(form.price) || 0,
+      category,
+      available: form.available,
+      ...(trimmedUrl ? { imageUrl: trimmedUrl } : {}),
+    });
+    closeForm();
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-2xl space-y-10">
+      <header className="space-y-3">
+        {editing ? (
+          <button
+            type="button"
+            onClick={closeForm}
+            className="inline-flex items-center gap-2 rounded-lg px-0 py-1 text-left text-sm font-medium text-amber-800 transition hover:text-amber-950"
+          >
+            ← Voltar à lista
+          </button>
+        ) : null}
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+              Itens do cardápio
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+              Gerencie produtos, preços, fotos e categorias — o que você define
+              aqui é o que o cliente vê no cardápio.
+            </p>
+          </div>
+          {!editing ? (
+            <button
+              type="button"
+              onClick={openNew}
+              className="shrink-0 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-black shadow-md transition hover:from-yellow-400 hover:to-amber-400"
+            >
+              Novo item
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      {editing ? (
+        <AdminProductForm
+          isNew={!!editing.isNew}
+          form={form}
+          setForm={setForm}
+          suggestedCategories={suggestedCategories}
+          imageError={imageError}
+          fileInputRef={fileInputRef}
+          onImageFile={handleImageFile}
+          onRemoveImage={handleRemoveImage}
+          onSubmit={handleSave}
+          onCancel={closeForm}
+          onCategoryCreated={(name) => {
+            addCategoryPreset(name);
+          }}
+        />
+      ) : null}
+
+      {!editing ? (
+        <ul className="space-y-3">
+          {sorted.map((item) => (
+            <li
+              key={item.id}
+              className="flex items-start gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm sm:gap-4 sm:px-5 sm:py-4"
+            >
+              <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <span
+                    className="flex size-full items-center justify-center text-[10px] text-zinc-400"
+                    aria-hidden
+                  >
+                    —
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p className="truncate font-semibold text-zinc-900">
+                  {item.name}
+                </p>
+                <p
+                  className="mt-1 truncate text-xs text-zinc-600"
+                  title={item.category}
+                >
+                  {item.category}
+                  {!item.available ? (
+                    <span className="ml-2 font-medium text-amber-700">
+                      Indisponível
+                    </span>
+                  ) : null}
+                </p>
+                <p className="mt-2 text-sm font-medium text-amber-700">
+                  {formatMoney(item.price)}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEdit(item)}
+                  className="inline-flex size-10 items-center justify-center rounded-xl border border-amber-400 bg-amber-50 text-amber-900 transition hover:bg-amber-100 md:size-auto md:gap-2 md:px-4 md:py-2"
+                  aria-label={`Editar ${item.name}`}
+                >
+                  <IconPencil className="size-4.5 md:size-4" />
+                  <span className="hidden text-sm font-medium md:inline">
+                    Editar
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeleteTarget({ id: item.id, name: item.name })
+                  }
+                  className="inline-flex size-10 items-center justify-center rounded-xl text-red-600 transition hover:bg-red-50 md:size-auto md:gap-2 md:px-4 md:py-2"
+                  aria-label={`Excluir ${item.name}`}
+                >
+                  <IconTrash className="size-4.5 md:size-4" />
+                  <span className="hidden text-sm font-medium md:inline">
+                    Excluir
+                  </span>
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-zinc-900/45 backdrop-blur-[2px]"
+            aria-label="Fechar"
+            onClick={() => setDeleteTarget(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-product-title"
+            className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl"
+          >
+            <h2
+              id="delete-product-title"
+              className="text-lg font-semibold tracking-tight text-zinc-900"
+            >
+              Excluir produto?
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-600">
+              Tem certeza de que deseja remover{" "}
+              <span className="font-medium text-zinc-800">
+                “{deleteTarget.name}”
+              </span>
+              ? Esta ação não pode ser desfeita.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  remove(deleteTarget.id);
+                  setDeleteTarget(null);
+                }}
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
