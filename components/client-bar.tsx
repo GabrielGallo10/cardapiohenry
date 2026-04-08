@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { BrandLogoLink } from "@/components/brand-logo-link";
 import { clearSession } from "@/lib/auth";
 
 type Props = {
+  /** Usado só para leitores de ecrã (a barra mostra apenas a logo). */
   title: string;
   trailing?: React.ReactNode;
 };
@@ -19,14 +21,13 @@ export function ClientBar({ title, trailing }: Props) {
 
   return (
     <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur-xl shadow-sm">
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-4">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-700">
-            Cliente
-          </p>
-          <h1 className="text-lg font-semibold tracking-tight text-zinc-900">
-            {title}
-          </h1>
+      <div className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-3 sm:py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <BrandLogoLink
+            href="/cardapio"
+            ariaLabel={`Ir para o cardápio — ${title}`}
+          />
+          <span className="sr-only">{title}</span>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {trailing}

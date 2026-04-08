@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { BrandLogoLink } from "@/components/brand-logo-link";
 import { clearSession } from "@/lib/auth";
 
 const navLinkClass =
@@ -26,17 +27,10 @@ export function AdminNav() {
       <div className="mx-auto max-w-4xl px-4 py-3 sm:py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <div className="flex items-start justify-between gap-3 lg:items-center">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-blue-600">
-                Administrador
-              </p>
-              <Link
-                href="/admin"
-                className="mt-0.5 block text-lg font-semibold tracking-tight text-zinc-900 sm:text-xl"
-              >
-                HenryBebidas
-              </Link>
-            </div>
+            <BrandLogoLink
+              href="/admin"
+              ariaLabel="Ir para o painel administrativo"
+            />
             <button
               type="button"
               onClick={handleLogout}

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function Home() {
@@ -16,28 +17,23 @@ export default function Home() {
         aria-hidden
       />
 
-      <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-8">
-        <div className="flex items-center gap-3">
-          <span
-            className="flex size-10 items-center justify-center rounded-xl border border-amber-400/60 bg-amber-100 text-lg text-amber-700"
-            aria-hidden
-          >
-            ◆
-          </span>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-700">
-              HenryBebidas
-            </p>
-            <p className="text-sm text-zinc-500">
-              Distribuidora de bebidas · Pedidos online
-            </p>
+      <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 pb-20 pt-10 md:pt-14">
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
+          <div className="mb-6 w-full max-w-[320px] sm:max-w-[380px] md:mb-8 md:max-w-[440px]">
+            <Image
+              src="/logohenry.png"
+              alt="Henry Bebidas — Centro de bebidas, gelada sempre"
+              width={560}
+              height={320}
+              className="mx-auto h-auto w-full object-contain drop-shadow-md"
+              priority
+              sizes="(max-width: 768px) 90vw, 440px"
+            />
           </div>
-        </div>
-      </header>
-
-      <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 pb-20 pt-4 md:pt-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <h1 className="text-4xl font-semibold leading-tight tracking-tight text-zinc-900 sm:text-5xl sm:leading-tight">
+          <p className="text-sm font-medium text-zinc-500">
+            Distribuidora de bebidas · Pedidos online
+          </p>
+          <h1 className="mt-6 text-4xl font-semibold leading-tight tracking-tight text-zinc-900 sm:text-5xl sm:leading-tight">
             Sua distribuidora de bebidas,{" "}
             <span className="bg-gradient-to-r from-amber-600 via-yellow-600 to-blue-700 bg-clip-text text-transparent">
               na palma da mão

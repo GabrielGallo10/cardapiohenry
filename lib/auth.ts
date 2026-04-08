@@ -1,5 +1,5 @@
 import type { UserRole } from "./types";
-import { apiLogin, apiRegister } from "./api";
+import { ApiHttpError, apiLogin, apiRegister } from "./api";
 
 export type { UserRole } from "./types";
 
@@ -14,6 +14,14 @@ export type AuthSession = {
 
 export function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "");
+}
+
+/** Alinha `cargo` do Postgres/API com o papel no frontend (trim + minúsculas). */
+function roleFromCargo(cargo: string): UserRole | null {
+  const c = cargo.trim().toLowerCase();
+  if (c === "admin") return "admin";
+  if (c === "client") return "client";
+  return null;
 }
 
 export function getSession(): AuthSession | null {
@@ -56,19 +64,53 @@ export function clearSession(): void {
   sessionStorage.removeItem(AUTH_KEY);
 }
 
+export type LoginResult =
+  | { ok: true; session: AuthSession }
+  | { ok: false; error: string };
+
 export async function loginWithPhonePassword(
   phone: string,
   password: string,
-): Promise<AuthSession | null> {
+): Promise<LoginResult> {
   try {
     const data = await apiLogin({ tel: normalizePhone(phone), password });
+    const role = roleFromCargo(data.cargo);
+    if (!role) {
+      return {
+        ok: false,
+        error:
+          "O servidor devolveu um tipo de conta inválido. Verifique o campo cargo na base de dados (admin ou client).",
+      };
+    }
     return {
-      role: data.cargo,
-      token: data.token,
-      clientPhone: data.cargo === "client" ? normalizePhone(phone) : undefined,
+      ok: true,
+      session: {
+        role,
+        token: data.token,
+        clientPhone: role === "client" ? normalizePhone(phone) : undefined,
+      },
     };
-  } catch {
-    return null;
+  } catch (e) {
+    if (e instanceof ApiHttpError) {
+      if (e.status >= 500) {
+        return {
+          ok: false,
+          error:
+            "Erro no servidor ao entrar. Confira os logs da API e a base de dados (ex.: colunas cargo/senha).",
+        };
+      }
+      if (e.status === 401) {
+        return { ok: false, error: "Telefone ou senha incorretos." };
+      }
+      return {
+        ok: false,
+        error: e.message || `Pedido falhou (${e.status}).`,
+      };
+    }
+    return {
+      ok: false,
+      error: "Não foi possível contactar o servidor. Verifique a rede e a URL da API.",
+    };
   }
 }
 

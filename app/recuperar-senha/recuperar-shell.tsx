@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AuthCardLogo } from "@/components/auth-card-logo";
 
 export function RecuperarSenhaShell({
   title,
@@ -31,11 +32,7 @@ export function RecuperarSenhaShell({
       <div className="relative w-full max-w-md">
         <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl glow-brand">
           <div className="border-b border-zinc-100 bg-gradient-to-br from-amber-50 via-white to-blue-50/60 px-8 py-10 text-center">
-            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl border border-amber-300 bg-amber-100 text-2xl text-amber-800">
-              <span aria-hidden className="select-none">
-                ◆
-              </span>
-            </div>
+            <AuthCardLogo />
             <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
               {title}
             </h1>

@@ -5,6 +5,17 @@ import { orderItemsTotal } from "./order-totals";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
+/** Erro HTTP da API com status (para distinguir 401 de 500 no login, etc.). */
+export class ApiHttpError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiHttpError";
+    this.status = status;
+  }
+}
+
 /** *.r2.dev costuma falhar (ex.: 500); servimos pelo proxy GET /storage na API. */
 function normalizeStorageImageUrl(url: string): string {
   if (!url) return url;
@@ -106,8 +117,8 @@ async function apiFetch<T>(
     cache: "no-store",
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Erro ${res.status}`);
+    const text = (await res.text()).trim();
+    throw new ApiHttpError(text || `Erro ${res.status}`, res.status);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
