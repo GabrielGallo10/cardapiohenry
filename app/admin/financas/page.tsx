@@ -7,6 +7,7 @@ import { downloadFinancePdf } from "@/lib/export-finance-pdf";
 import { formatMoney } from "@/lib/format";
 import { orderItemsTotal } from "@/lib/order-totals";
 import type { ManualFinanceKind, Order } from "@/lib/types";
+import { AdminConfirmModal } from "@/components/admin-confirm-modal";
 
 type FinanceDisplayRow = {
   key: string;
@@ -65,8 +66,9 @@ function sortByDateDesc(a: FinanceDisplayRow, b: FinanceDisplayRow) {
 
 export default function AdminFinancasPage() {
   const { orders } = useOrders();
-  const { entries, add, remove } = useManualFinance();
+  const { entries, add, remove, clearAll } = useManualFinance();
   const [modalOpen, setModalOpen] = useState(false);
+  const [clearFinancesOpen, setClearFinancesOpen] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [formKind, setFormKind] = useState<ManualFinanceKind>("entrada");
   const [formDesc, setFormDesc] = useState("");
@@ -165,9 +167,9 @@ export default function AdminFinancasPage() {
         },
       ];
       const now = new Date();
-      const fileBase = `financas-cardapio-henry-${now.toISOString().slice(0, 10)}`;
+      const fileBase = `financas-henry-bebidas-${now.toISOString().slice(0, 10)}`;
       await downloadFinancePdf({
-        title: "Finanças — Cardápio Henry",
+        title: "Finanças — HenryBebidas",
         generatedAtLabel: `Gerado em ${now.toLocaleString("pt-BR")}`,
         entradas:
           entradas.length > 0 ? entradas.map(rowToPdf) : emptyPlaceholder,
@@ -182,6 +184,11 @@ export default function AdminFinancasPage() {
     }
   }
 
+  async function confirmClearFinances() {
+    setClearFinancesOpen(false);
+    await clearAll();
+  }
+
   const thClass =
     "px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-600 sm:px-4";
   const tdClass =
@@ -189,7 +196,7 @@ export default function AdminFinancasPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-8 pb-10">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
             Finanças
@@ -200,7 +207,7 @@ export default function AdminFinancasPage() {
             despesas.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={openModal}
@@ -218,6 +225,14 @@ export default function AdminFinancasPage() {
             className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 shadow-sm transition hover:bg-amber-100 disabled:opacity-50 sm:whitespace-nowrap"
           >
             {pdfLoading ? "Gerando PDF…" : "Exportar PDF"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setClearFinancesOpen(true)}
+            disabled={entries.length === 0}
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:whitespace-nowrap"
+          >
+            Limpar finanças
           </button>
         </div>
       </header>
@@ -251,7 +266,7 @@ export default function AdminFinancasPage() {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="flex flex-col gap-8">
         <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
           <div className="border-b border-blue-100 bg-blue-50/55 px-4 py-3">
             <h2 className="text-sm font-semibold text-blue-900">Entradas</h2>
@@ -389,6 +404,16 @@ export default function AdminFinancasPage() {
           </div>
         </section>
       </div>
+
+      <AdminConfirmModal
+        open={clearFinancesOpen}
+        title="Limpar lançamentos manuais?"
+        description="Serão removidos todos os lançamentos manuais de entradas e saídas. Os valores vindos de pedidos concluídos continuam a aparecer nas entradas."
+        confirmLabel="Sim, limpar lançamentos"
+        cancelLabel="Cancelar"
+        onConfirm={() => void confirmClearFinances()}
+        onCancel={() => setClearFinancesOpen(false)}
+      />
 
       {modalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

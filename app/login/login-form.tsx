@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,8 +9,6 @@ import {
   resolveRedirectAfterLogin,
   setSession,
 } from "@/lib/auth";
-import { normalizePhone } from "@/lib/users-storage";
-
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -20,6 +18,7 @@ export function LoginForm() {
       ? nextRaw
       : "";
   const justRegistered = searchParams.get("cadastro") === "ok";
+  const senhaRecuperada = searchParams.get("recuperacao") === "ok";
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -32,21 +31,18 @@ export function LoginForm() {
     router.replace(resolveRedirectAfterLogin(s.role, next));
   }, [router, next]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const role = loginWithPhonePassword(phone, password);
-    if (!role) {
+    const session = await loginWithPhonePassword(phone, password);
+    if (!session) {
       setError("Telefone ou senha incorretos.");
       setLoading(false);
       return;
     }
-    setSession({
-      role,
-      clientPhone: role === "client" ? normalizePhone(phone) : undefined,
-    });
-    router.push(resolveRedirectAfterLogin(role, next));
+    setSession(session);
+    router.push(resolveRedirectAfterLogin(session.role, next));
     router.refresh();
   }
 
@@ -65,7 +61,7 @@ export function LoginForm() {
         href="/"
         className="fixed left-4 top-4 z-30 inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 shadow-md backdrop-blur-md transition hover:border-amber-400 hover:text-amber-800 sm:left-6 sm:top-6"
       >
-        <span aria-hidden>←</span> Voltar ao início
+        <span aria-hidden>←</span> Voltar ao inicio
       </Link>
 
       <div className="relative w-full max-w-md">
@@ -80,7 +76,7 @@ export function LoginForm() {
               Entrar
             </h1>
             <p className="mx-auto mt-3 max-w-[280px] text-sm leading-relaxed text-zinc-600">
-              Bem-vindo de volta. Entre para pedir pelo cardápio ou administrar o
+              Bem-vindo de volta. Entre para pedir pelo cardapio ou administrar o
               menu.
             </p>
           </div>
@@ -91,7 +87,15 @@ export function LoginForm() {
                 className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
                 role="status"
               >
-                Cadastro concluído! Agora entre com telefone e senha.
+                Cadastro concluido! Agora entre com telefone e senha.
+              </p>
+            ) : null}
+            {senhaRecuperada ? (
+              <p
+                className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950"
+                role="status"
+              >
+                Senha alterada com sucesso. Entre com a nova senha.
               </p>
             ) : null}
             <div>
@@ -141,10 +145,18 @@ export function LoginForm() {
               disabled={loading}
               className="w-full rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 py-3.5 text-sm font-semibold text-black shadow-md transition hover:from-yellow-400 hover:to-amber-400 disabled:opacity-60"
             >
-              {loading ? "Entrando…" : "Entrar"}
+              {loading ? "Entrando..." : "Entrar"}
             </button>
+            <p className="text-center text-sm">
+              <Link
+                href="/recuperar-senha"
+                className="font-medium text-amber-700 hover:text-amber-900"
+              >
+                Esqueci a senha
+              </Link>
+            </p>
             <p className="text-center text-sm text-zinc-600">
-              Não tem conta?{" "}
+              Nao tem conta?{" "}
               <Link
                 href="/cadastro"
                 className="font-medium text-amber-700 hover:text-amber-900"
@@ -158,3 +170,4 @@ export function LoginForm() {
     </div>
   );
 }
+

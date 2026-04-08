@@ -29,6 +29,7 @@ const STATUSES = Object.keys(ORDER_STATUS_LABELS) as OrderStatus[];
 type OrderStatusSelectProps = {
   value: OrderStatus;
   onChange: (status: OrderStatus) => void;
+  options?: OrderStatus[];
   id?: string;
   className?: string;
   /** Lista de pedidos: menor e largura total no mobile */
@@ -40,6 +41,7 @@ type OrderStatusSelectProps = {
 export function OrderStatusSelect({
   value,
   onChange,
+  options,
   id,
   className = "",
   compact = false,
@@ -47,6 +49,7 @@ export function OrderStatusSelect({
   onPointerDown,
 }: OrderStatusSelectProps) {
   const style = ORDER_STATUS_SELECT_STYLES[value];
+  const visibleStatuses = options?.length ? options : STATUSES;
 
   const wrapClass = compact
     ? "relative block w-full min-w-0 sm:inline-block sm:min-w-[200px]"
@@ -67,7 +70,7 @@ export function OrderStatusSelect({
         className={`${selectClass} ${style}`}
         aria-label="Status do pedido"
       >
-        {STATUSES.map((s) => (
+        {visibleStatuses.map((s) => (
           <option key={s} value={s}>
             {ORDER_STATUS_LABELS[s]}
           </option>

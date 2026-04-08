@@ -26,7 +26,7 @@ export default function Home() {
           </span>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-700">
-              Cardápio Henry
+              HenryBebidas
             </p>
             <p className="text-sm text-zinc-500">
               Distribuidora de bebidas · Pedidos online
@@ -60,7 +60,7 @@ export default function Home() {
       </main>
 
       <footer className="relative z-10 border-t border-zinc-200 py-8 text-center text-xs text-zinc-600">
-        <p className="font-medium text-zinc-500">Cardápio Henry</p>
+        <p className="font-medium text-zinc-500">HenryBebidas</p>
         <p className="mt-2 text-zinc-600">
           Desenvolvido por GGCoreSystems
         </p>

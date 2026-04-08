@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Entrar | Cardápio Henry",
+  title: "Entrar | HenryBebidas",
   description: "Acesso de administrador ou cliente.",
 };
 

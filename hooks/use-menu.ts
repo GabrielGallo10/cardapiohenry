@@ -2,41 +2,32 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { MenuItem } from "@/lib/types";
-import { MENU_UPDATED, readMenuItems, writeMenuItems } from "@/lib/client-data";
+import {
+  apiDeleteMenuItem,
+  apiListMenuItems,
+  apiUpsertMenuItem,
+} from "@/lib/api";
 
 export function useMenu() {
   const [items, setItems] = useState<MenuItem[]>([]);
 
-  const refresh = useCallback(() => {
-    setItems(readMenuItems());
+  const refresh = useCallback(async () => {
+    const data = await apiListMenuItems();
+    setItems(data);
   }, []);
 
   useEffect(() => {
-    refresh();
-    const on = () => refresh();
-    window.addEventListener(MENU_UPDATED, on);
-    window.addEventListener("storage", on);
-    return () => {
-      window.removeEventListener(MENU_UPDATED, on);
-      window.removeEventListener("storage", on);
-    };
+    void refresh();
   }, [refresh]);
 
-  const upsert = useCallback((item: MenuItem) => {
-    const current = readMenuItems();
-    const idx = current.findIndex((i) => i.id === item.id);
-    const next =
-      idx === -1
-        ? [...current, item]
-        : current.map((i, j) => (j === idx ? item : i));
-    writeMenuItems(next);
-    setItems(next);
-  }, []);
+  const upsert = useCallback(async (item: MenuItem) => {
+    await apiUpsertMenuItem(item);
+    await refresh();
+  }, [refresh]);
 
-  const remove = useCallback((id: string) => {
-    const next = readMenuItems().filter((i) => i.id !== id);
-    writeMenuItems(next);
-    setItems(next);
+  const remove = useCallback(async (id: string) => {
+    await apiDeleteMenuItem(id);
+    await refresh();
   }, []);
 
   return { items, refresh, upsert, remove };

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ClientBar } from "@/components/client-bar";
 import { useCart } from "@/components/cart-provider";
@@ -11,18 +12,10 @@ import {
   isAddressFormComplete,
   type AddressFormState,
 } from "@/lib/address";
-import { addOrder } from "@/lib/client-data";
-import { getWhatsAppNumber } from "@/lib/config";
+import { apiCreateAddress, apiCreateOrder, apiListAddresses } from "@/lib/api";
 import { formatMoney, formatPhoneForDisplay } from "@/lib/format";
 import { getSession } from "@/lib/auth";
-import {
-  addAddressToClientUser,
-  findUserByPhone,
-  getClientAddresses,
-  USERS_UPDATED,
-} from "@/lib/users-storage";
 import type { SavedAddress } from "@/lib/types";
-import { buildOrderWhatsAppText, whatsAppUrl } from "@/lib/whatsapp";
 
 function randomAddressId(): string {
   return `addr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -36,40 +29,36 @@ export default function CarrinhoPage() {
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [error, setError] = useState<string | null>(null);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const router = useRouter();
 
   const [clientPhone, setClientPhone] = useState<string | null>(null);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-  /** Com endereços salvos: false = escolher da lista; true = formulário de novo. */
-  const [showAddressForm, setShowAddressForm] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [addrForm, setAddrForm] = useState<AddressFormState>(emptyAddressForm);
-  const [saveAddressToProfile, setSaveAddressToProfile] = useState(false);
 
-  const refreshAddresses = useCallback(() => {
+  const refreshAddresses = useCallback(async () => {
     const cp = getSession()?.clientPhone ?? null;
     setClientPhone(cp);
     if (cp) {
-      setSavedAddresses(getClientAddresses(cp));
+      try {
+        setSavedAddresses(await apiListAddresses());
+      } catch {
+        setSavedAddresses([]);
+      }
     } else {
       setSavedAddresses([]);
     }
   }, []);
 
   useEffect(() => {
-    refreshAddresses();
-    const onUsers = () => refreshAddresses();
-    window.addEventListener(USERS_UPDATED, onUsers);
-    return () => window.removeEventListener(USERS_UPDATED, onUsers);
+    void refreshAddresses();
   }, [refreshAddresses]);
 
   useEffect(() => {
     const cp = getSession()?.clientPhone;
     if (!cp) return;
-    const u = findUserByPhone(cp);
-    if (u) {
-      setName(u.name);
-      setPhone(formatPhoneForDisplay(u.phone));
-    }
+    setPhone(formatPhoneForDisplay(cp));
   }, []);
 
   useEffect(() => {
@@ -83,11 +72,14 @@ export default function CarrinhoPage() {
     });
   }, [savedAddresses]);
 
-  const hasSavedAddresses = clientPhone !== null && savedAddresses.length > 0;
-  const showFormBlock =
-    !clientPhone || savedAddresses.length === 0 || showAddressForm;
+  useEffect(() => {
+    if (lines.length > 0) setOrderSuccess(false);
+  }, [lines.length]);
 
-  function handleSubmit(e: React.FormEvent) {
+  const hasSavedAddresses = clientPhone !== null && savedAddresses.length > 0;
+  const showFormBlock = !clientPhone;
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const n = name.trim();
@@ -102,10 +94,10 @@ export default function CarrinhoPage() {
     }
 
     let deliveryAddress = "";
+    let selectedAddressNumericID = 0;
     const useSavedSelection =
       clientPhone &&
       savedAddresses.length > 0 &&
-      !showAddressForm &&
       selectedAddressId;
 
     if (useSavedSelection) {
@@ -115,6 +107,7 @@ export default function CarrinhoPage() {
         return;
       }
       deliveryAddress = formatSavedAddress(sel);
+      selectedAddressNumericID = Number(sel.id);
     } else {
       if (!isAddressFormComplete(addrForm)) {
         setError(
@@ -124,45 +117,38 @@ export default function CarrinhoPage() {
       }
       const built = addressFormToSaved(randomAddressId(), addrForm);
       deliveryAddress = formatSavedAddress(built);
-      const cp = getSession()?.clientPhone;
-      if (saveAddressToProfile && cp) {
-        addAddressToClientUser(cp, built);
-      }
     }
 
-    const items = lines.map((l) => ({
-      menuItemId: l.menuItemId,
-      name: l.name,
-      price: l.price,
-      quantity: l.quantity,
-    }));
-    addOrder({
-      customerName: n,
-      customerPhone: p,
-      deliveryAddress,
-      notes: notes.trim(),
-      items,
-      status: "novo",
-      paymentMethod,
-    });
-    const text = buildOrderWhatsAppText({
-      customerName: n,
-      customerPhone: p,
-      deliveryAddress,
-      notes: notes.trim(),
-      items,
-    });
-    const url = whatsAppUrl(getWhatsAppNumber(), text);
-    clear();
-    setName("");
-    setPhone("");
-    setNotes("");
-    setPaymentMethod("PIX");
-    setAddrForm({ ...emptyAddressForm });
-    setSaveAddressToProfile(false);
-    setShowAddressForm(false);
-    refreshAddresses();
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (!selectedAddressNumericID) {
+      setError("Nao foi possivel identificar o endereco para o pedido.");
+      return;
+    }
+
+    try {
+      await apiCreateOrder({
+        nome_cliente: n,
+        telefone_cliente: p,
+        id_endereco: selectedAddressNumericID,
+        forma_pagamento: paymentMethod,
+        observacoes: notes.trim(),
+        items_pedido: lines.map((l) => ({
+          id_produto: Number(l.menuItemId),
+          quantidade: l.quantity,
+        })),
+      });
+      clear();
+      setName("");
+      setPhone("");
+      setNotes("");
+      setPaymentMethod("PIX");
+      setAddrForm({ ...emptyAddressForm });
+      await refreshAddresses();
+      setOrderSuccess(true);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Não foi possível concluir o pedido.",
+      );
+    }
   }
 
   return (
@@ -185,7 +171,25 @@ export default function CarrinhoPage() {
       />
 
       <main className="relative z-10 mx-auto max-w-2xl space-y-8 px-4 py-10 pb-16">
-        {lines.length === 0 ? (
+        {orderSuccess ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-8 text-center shadow-md sm:p-12">
+            <p className="text-lg font-semibold text-emerald-950">
+              Pedido realizado com sucesso!
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-emerald-900/90">
+              Você receberá o resumo e as atualizações do seu pedido pelo{" "}
+              <span className="font-semibold">WhatsApp</span> no número que
+              informou. Acompanhe por lá — avisaremos na separação do pedido,
+              no envio para entrega e quando o pedido for concluído.
+            </p>
+            <Link
+              href="/cardapio"
+              className="mt-8 inline-flex rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-6 py-3 text-sm font-semibold text-black transition hover:from-yellow-400 hover:to-amber-400"
+            >
+              Voltar ao cardápio
+            </Link>
+          </div>
+        ) : lines.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-12 text-center">
             <p className="text-lg font-medium text-zinc-800">
               Seu carrinho está vazio
@@ -249,7 +253,7 @@ export default function CarrinhoPage() {
           </section>
         )}
 
-        {lines.length > 0 ? (
+        {!orderSuccess && lines.length > 0 ? (
           <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-lg glow-brand">
             <div className="border-b border-zinc-100 bg-gradient-to-r from-blue-50 to-amber-50/50 px-6 py-5">
               <p className="flex items-baseline justify-between gap-4">
@@ -262,8 +266,9 @@ export default function CarrinhoPage() {
                 </span>
               </p>
               <p className="mt-3 text-xs leading-relaxed text-zinc-600">
-                Sem pagamento no site. Ao concluir, abrimos a conversa com o
-                texto do pedido para você enviar à distribuidora.
+                Sem pagamento no site. Ao concluir, seu pedido aparece para a
+                equipe e você será avisado pelo WhatsApp com o resumo e cada
+                etapa do pedido.
               </p>
             </div>
 
@@ -331,7 +336,7 @@ export default function CarrinhoPage() {
                       <ul className="space-y-2" role="list">
                         {savedAddresses.map((a) => {
                           const selected =
-                            selectedAddressId === a.id && !showAddressForm;
+                            selectedAddressId === a.id;
                           const body = formatSavedAddress({
                             ...a,
                             label: undefined,
@@ -341,7 +346,6 @@ export default function CarrinhoPage() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setShowAddressForm(false);
                                   setSelectedAddressId(a.id);
                                 }}
                                 className={`w-full rounded-xl border px-4 py-3 text-left transition ${
@@ -369,16 +373,7 @@ export default function CarrinhoPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (savedAddresses.length === 0) {
-                          document
-                            .getElementById("checkout-address-fields")
-                            ?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "start",
-                            });
-                        } else {
-                          setShowAddressForm(true);
-                        }
+                        router.push("/enderecos/novo?next=/carrinho");
                       }}
                       className="w-full rounded-xl border-2 border-dashed border-amber-400/70 bg-amber-50/80 px-4 py-3 text-sm font-semibold text-amber-950 transition hover:bg-amber-100"
                     >
@@ -392,20 +387,6 @@ export default function CarrinhoPage() {
                     id="checkout-address-fields"
                     className="mt-4 space-y-4 scroll-mt-24"
                   >
-                    {hasSavedAddresses && showAddressForm ? (
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium uppercase tracking-wider text-zinc-600">
-                          Novo endereço
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowAddressForm(false)}
-                          className="text-xs font-medium text-blue-700 hover:text-blue-900"
-                        >
-                          Voltar aos salvos
-                        </button>
-                      </div>
-                    ) : null}
                     <div>
                       <label
                         htmlFor="addr-label"
@@ -560,21 +541,6 @@ export default function CarrinhoPage() {
                         />
                       </div>
                     </div>
-                    {clientPhone ? (
-                      <label className="flex cursor-pointer items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={saveAddressToProfile}
-                          onChange={(e) =>
-                            setSaveAddressToProfile(e.target.checked)
-                          }
-                          className="size-4 rounded border-zinc-400 text-amber-600 focus:ring-amber-500/40"
-                        />
-                        <span className="text-sm text-zinc-700">
-                          Salvar este endereço na minha conta
-                        </span>
-                      </label>
-                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -623,7 +589,7 @@ export default function CarrinhoPage() {
                 type="submit"
                 className="w-full rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 py-4 text-sm font-semibold text-black shadow-md transition hover:from-yellow-400 hover:to-amber-400"
               >
-                Concluir e enviar pedido
+                Concluir pedido
               </button>
             </form>
           </div>

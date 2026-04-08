@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { CartLine } from "@/lib/types";
 
-const STORAGE_KEY = "cardapio-henry-cart";
+const STORAGE_KEY = "henry-bebidas-cart";
 
 type CartContextValue = {
   lines: CartLine[];

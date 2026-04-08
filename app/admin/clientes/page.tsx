@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatPhoneForDisplay } from "@/lib/format";
+import { apiListClients } from "@/lib/api";
 import { customerPhoneContact } from "@/lib/phone-contact";
-import type { UserRecord } from "@/lib/types";
-import { readUsers, USERS_UPDATED } from "@/lib/users-storage";
+
+type ClientRow = { name: string; phone: string };
 
 function ClienteWhatsappPhone({ phone }: { phone: string }) {
   const c = customerPhoneContact(phone);
@@ -26,47 +27,28 @@ function ClienteWhatsappPhone({ phone }: { phone: string }) {
   );
 }
 
-function clientMatchesQuery(client: UserRecord, raw: string): boolean {
-  const q = raw.trim();
-  if (!q) return true;
-  const qLower = q.toLowerCase();
-  if (client.name.toLowerCase().includes(qLower)) return true;
-  const qDigits = q.replace(/\D/g, "");
-  const phoneDigits = client.phone.replace(/\D/g, "");
-  if (qDigits.length > 0 && phoneDigits.includes(qDigits)) return true;
-  const displayed = formatPhoneForDisplay(client.phone).toLowerCase();
-  if (displayed.includes(qLower)) return true;
-  return false;
-}
-
 export default function AdminClientesPage() {
-  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [users, setUsers] = useState<ClientRow[]>([]);
   const [search, setSearch] = useState("");
 
-  const refresh = useCallback(() => {
-    setUsers(readUsers());
+  const refresh = useCallback(async () => {
+    const rows = await apiListClients(search);
+    setUsers(rows.map((r) => ({ name: r.nome, phone: r.telefone })));
+  }, [search]);
+
+  useEffect(() => {
+    void refresh();
   }, []);
 
   useEffect(() => {
-    refresh();
-    const on = () => refresh();
-    window.addEventListener(USERS_UPDATED, on);
-    window.addEventListener("storage", on);
-    return () => {
-      window.removeEventListener(USERS_UPDATED, on);
-      window.removeEventListener("storage", on);
-    };
+    const t = window.setTimeout(() => {
+      void refresh();
+    }, 250);
+    return () => window.clearTimeout(t);
   }, [refresh]);
 
-  const clients = useMemo(
-    () => users.filter((u) => u.role === "client"),
-    [users],
-  );
-
-  const filteredClients = useMemo(
-    () => clients.filter((c) => clientMatchesQuery(c, search)),
-    [clients, search],
-  );
+  const clients = users;
+  const filteredClients = useMemo(() => clients, [clients]);
 
   return (
     <div className="space-y-6">
@@ -122,7 +104,10 @@ export default function AdminClientesPage() {
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {filteredClients.map((u) => (
-                  <tr key={u.id} className="transition hover:bg-amber-50/40">
+                  <tr
+                    key={`${u.phone}-${u.name}`}
+                    className="transition hover:bg-amber-50/40"
+                  >
                     <td className="px-5 py-4 font-medium text-zinc-900">
                       {u.name}
                     </td>

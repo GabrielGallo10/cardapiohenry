@@ -11,6 +11,7 @@ import {
   ORDER_STATUS_LABELS,
 } from "@/lib/order-status-meta";
 import { formatMoney, formatPhoneForDisplay } from "@/lib/format";
+import { allowedStatusOptions } from "@/lib/order-status-flow";
 import type { OrderStatus } from "@/lib/types";
 import { useOrders } from "@/hooks/use-orders";
 import {
@@ -25,6 +26,7 @@ import {
   ADMIN_LIST_CARD_NAME,
   adminAccentFromIndex,
 } from "@/lib/admin-card-accents";
+import { AdminConfirmModal } from "@/components/admin-confirm-modal";
 
 const ALL_STATUSES = Object.keys(ORDER_STATUS_LABELS) as OrderStatus[];
 
@@ -45,10 +47,11 @@ function formatOrderCompact(iso: string) {
 
 export default function AdminPedidosPage() {
   const router = useRouter();
-  const { orders, setStatus } = useOrders();
+  const { orders, loading, error, refresh, setStatus, clearAll } = useOrders();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "todos">(
     "todos",
   );
+  const [clearOrdersOpen, setClearOrdersOpen] = useState(false);
 
   const sorted = useMemo(
     () =>
@@ -64,19 +67,61 @@ export default function AdminPedidosPage() {
     return sorted.filter((o) => o.status === statusFilter);
   }, [sorted, statusFilter]);
 
+  async function confirmClearOrders() {
+    setClearOrdersOpen(false);
+    setStatusFilter("todos");
+    await clearAll();
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 sm:space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
-          Pedidos
-        </h1>
-        <p className="mt-1.5 text-xs leading-snug text-zinc-600 sm:mt-2 sm:text-sm sm:leading-normal">
-          Toque em qualquer lugar do card para abrir o pedido. O menu no rodapé
-          serve só para alterar o status.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+            Pedidos
+          </h1>
+          <p className="mt-1.5 text-xs leading-snug text-zinc-600 sm:mt-2 sm:text-sm sm:leading-normal">
+            Toque em qualquer lugar do card para abrir o pedido. O menu no rodapé
+            serve só para alterar o status.
+          </p>
+        </div>
+        {sorted.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setClearOrdersOpen(true)}
+            className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100"
+          >
+            Limpar pedidos
+          </button>
+        ) : null}
       </div>
 
-      {sorted.length === 0 ? (
+      <AdminConfirmModal
+        open={clearOrdersOpen}
+        title="Limpar todos os pedidos?"
+        description="Esta ação apaga todos os pedidos do sistema e não pode ser desfeita. Tem certeza de que deseja continuar?"
+        confirmLabel="Sim, limpar pedidos"
+        cancelLabel="Cancelar"
+        onConfirm={() => void confirmClearOrders()}
+        onCancel={() => setClearOrdersOpen(false)}
+      />
+
+      {loading ? (
+        <div className="rounded-xl border border-zinc-200 bg-white py-10 text-center text-sm text-zinc-600 sm:rounded-2xl sm:py-14">
+          Carregando pedidos...
+        </div>
+      ) : error ? (
+        <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 px-4 py-5 text-sm text-red-700 sm:rounded-2xl">
+          <p>Falha ao buscar pedidos: {error}</p>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : sorted.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 bg-white py-10 text-center text-sm text-zinc-600 sm:rounded-2xl sm:py-14">
           Nenhum pedido ainda.
         </div>
@@ -210,6 +255,7 @@ export default function AdminPedidosPage() {
                         compact
                         id={`st-${order.id}`}
                         value={order.status}
+                        options={allowedStatusOptions(order.status)}
                         onChange={(s) => setStatus(order.id, s as OrderStatus)}
                       />
                     </div>

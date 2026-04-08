@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ClientBar } from "@/components/client-bar";
 import { useCart } from "@/components/cart-provider";
 import { useMenu } from "@/hooks/use-menu";
+import { MenuItemPhoto } from "@/components/menu-item-photo";
 import { formatMoney } from "@/lib/format";
 
 export default function CardapioPage() {
@@ -140,24 +141,14 @@ export default function CardapioPage() {
                 {list.map((item) => (
                   <li
                     key={item.id}
-                    className="group flex gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-md transition hover:border-amber-200 hover:shadow-lg"
+                    className="group flex gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-md transition hover:border-amber-200 hover:shadow-xl hover:shadow-amber-500/10"
                   >
-                    <div className="relative size-24 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
-                      {item.imageUrl ? (
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <span
-                          className="flex size-full items-center justify-center text-[10px] text-zinc-400"
-                          aria-hidden
-                        >
-                          Sem foto
-                        </span>
-                      )}
-                    </div>
+                    <MenuItemPhoto
+                      src={item.imageUrl}
+                      alt={item.name}
+                      variant="card"
+                      hoverZoom
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-zinc-900">{item.name}</p>
                       {item.description ? (

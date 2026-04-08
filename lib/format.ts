@@ -13,3 +13,12 @@ export function formatPhoneForDisplay(digits: string): string {
   }
   return digits;
 }
+
+/** Exibe forma de pagamento vinda da API (ex.: "pix" → "PIX"). */
+export function formatPaymentMethodLabel(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const lower = t.toLowerCase();
+  if (lower === "pix") return "PIX";
+  return t;
+}

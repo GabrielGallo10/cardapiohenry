@@ -2,7 +2,7 @@ import type { OrderStatus } from "./types";
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   novo: "Novo",
-  em_preparo: "Em preparo",
+  em_preparo: "Em separação",
   pronto: "Pronto para entrega",
   concluido: "Concluído",
 };

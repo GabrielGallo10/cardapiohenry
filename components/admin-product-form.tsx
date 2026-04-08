@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MenuItemPhoto } from "@/components/menu-item-photo";
 import type { MenuItem } from "@/lib/types";
 
 export function IconChevronDown({ className }: { className?: string }) {
@@ -39,7 +40,7 @@ type AdminProductFormProps = {
   onRemoveImage: () => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
-  onCategoryCreated: (name: string) => void;
+  onCategoryCreated: (name: string) => Promise<boolean>;
 };
 
 export function AdminProductForm({
@@ -57,24 +58,30 @@ export function AdminProductForm({
 }: AdminProductFormProps) {
   const [showCategoryCreator, setShowCategoryCreator] = useState(false);
   const [draftCategoryName, setDraftCategoryName] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
 
   const sortedCats = [...suggestedCategories].sort((a, b) =>
     a.localeCompare(b, "pt-BR"),
   );
-  const isPreset = sortedCats.includes(form.category);
-  const selectValue = isPreset
-    ? form.category
-    : form.category === ""
-      ? ""
-      : "__other";
+  const hasCategories = sortedCats.length > 0;
+  const selectValue = sortedCats.includes(form.category) ? form.category : "";
 
-  function handleSaveNewCategory() {
+  async function handleSaveNewCategory() {
     const name = draftCategoryName.trim();
-    if (!name) return;
-    onCategoryCreated(name);
+    if (!name || savingCategory) return;
+    setSavingCategory(true);
+    setCategoryError(null);
+    const ok = await onCategoryCreated(name);
+    if (!ok) {
+      setCategoryError("Nao foi possivel criar a categoria.");
+      setSavingCategory(false);
+      return;
+    }
     setForm((f) => ({ ...f, category: name }));
     setDraftCategoryName("");
     setShowCategoryCreator(false);
+    setSavingCategory(false);
   }
 
   return (
@@ -97,19 +104,11 @@ export function AdminProductForm({
                 cliente.
               </p>
               <div className="mt-3 flex flex-wrap items-start gap-4">
-                <div className="relative size-28 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
-                  {form.imageUrl ? (
-                    <img
-                      src={form.imageUrl}
-                      alt="Pré-visualização do produto"
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex size-full items-center justify-center text-xs text-zinc-400">
-                      Sem foto
-                    </span>
-                  )}
-                </div>
+                <MenuItemPhoto
+                  src={form.imageUrl}
+                  alt="Pré-visualização do produto"
+                  variant="form"
+                />
                 <div className="min-w-0 flex-1 space-y-2">
                   <input
                     ref={fileInputRef}
@@ -192,70 +191,38 @@ export function AdminProductForm({
               <label className="block text-xs font-medium uppercase tracking-wider text-zinc-600">
                 Categoria
               </label>
-              {sortedCats.length === 0 ? (
-                <input
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, category: e.target.value }))
-                  }
-                  className={inputClass}
-                  placeholder="Ex.: Bebidas"
-                  required
-                />
-              ) : (
-                <div className="mt-2 space-y-2">
-                  <div className="relative">
-                    <select
-                      value={selectValue}
-                      required
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "") {
-                          setForm((f) => ({ ...f, category: "" }));
-                          return;
-                        }
-                        if (v === "__other") {
-                          setForm((f) => ({
-                            ...f,
-                            category: sortedCats.includes(f.category)
-                              ? ""
-                              : f.category,
-                          }));
-                          return;
-                        }
-                        setForm((f) => ({ ...f, category: v }));
-                      }}
-                      className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-zinc-300 bg-white py-2.5 pl-3 pr-10 text-sm text-zinc-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 sm:h-[46px] sm:px-4"
-                      aria-label="Categoria existente ou outra"
-                    >
-                      <option value="">Selecionar categoria…</option>
-                      {sortedCats.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                      <option value="__other">Outra categoria…</option>
-                    </select>
-                    <span
-                      className="pointer-events-none absolute inset-y-0 right-0 flex w-10 items-center justify-center text-zinc-500"
-                      aria-hidden
-                    >
-                      <IconChevronDown className="size-5 shrink-0" />
-                    </span>
-                  </div>
-                  {selectValue === "__other" ? (
-                    <input
-                      value={form.category}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, category: e.target.value }))
-                      }
-                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 sm:px-4 sm:py-3"
-                      placeholder="Digite o nome da categoria"
-                      required
-                    />
-                  ) : null}
+              <div className="mt-2 space-y-2">
+                <div className="relative">
+                  <select
+                    value={selectValue}
+                    required
+                    disabled={!hasCategories}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setForm((f) => ({ ...f, category: v }));
+                    }}
+                    className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-zinc-300 bg-white py-2.5 pl-3 pr-10 text-sm text-zinc-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 sm:h-[46px] sm:px-4"
+                    aria-label="Selecionar categoria"
+                  >
+                    <option value="">
+                      {hasCategories
+                        ? "Selecionar categoria..."
+                        : "Nenhuma categoria cadastrada"}
+                    </option>
+                    {sortedCats.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    className="pointer-events-none absolute inset-y-0 right-0 flex w-10 items-center justify-center text-zinc-500"
+                    aria-hidden
+                  >
+                    <IconChevronDown className="size-5 shrink-0" />
+                  </span>
                 </div>
-              )}
+              </div>
 
               <button
                 type="button"
@@ -287,11 +254,15 @@ export function AdminProductForm({
                   />
                   <button
                     type="button"
-                    onClick={handleSaveNewCategory}
-                    className="mt-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:from-yellow-400 hover:to-amber-400"
+                    onClick={() => void handleSaveNewCategory()}
+                    disabled={savingCategory}
+                    className="mt-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:from-yellow-400 hover:to-amber-400 disabled:opacity-60"
                   >
-                    Salvar categoria
+                    {savingCategory ? "Salvando..." : "Salvar categoria"}
                   </button>
+                  {categoryError ? (
+                    <p className="mt-2 text-sm text-red-600">{categoryError}</p>
+                  ) : null}
                 </div>
               ) : null}
             </div>

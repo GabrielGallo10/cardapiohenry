@@ -3,33 +3,70 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Order, OrderStatus } from "@/lib/types";
 import {
-  ORDERS_UPDATED,
-  readOrders,
-  updateOrderStatus as patchStatus,
-} from "@/lib/client-data";
+  apiClearOrders,
+  apiGetOrderByID,
+  apiListOrders,
+  apiUpdateOrderStatus,
+} from "@/lib/api";
+import { openWhatsAppNotifyCustomer } from "@/lib/whatsapp";
 
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(() => {
-    setOrders(readOrders());
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiListOrders();
+      setOrders(data);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Falha ao carregar pedidos do servidor.",
+      );
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    refresh();
-    const on = () => refresh();
-    window.addEventListener(ORDERS_UPDATED, on);
-    window.addEventListener("storage", on);
-    return () => {
-      window.removeEventListener(ORDERS_UPDATED, on);
-      window.removeEventListener("storage", on);
-    };
+    void refresh();
   }, [refresh]);
 
-  const setStatus = useCallback((id: string, status: OrderStatus) => {
-    patchStatus(id, status);
-    setOrders(readOrders());
-  }, []);
+  const setStatus = useCallback(
+    async (id: string, status: OrderStatus) => {
+      setError(null);
+      const order = orders.find((o) => o.id === id);
+      try {
+        await apiUpdateOrderStatus(id, status);
+        if (order && status !== "novo") {
+          try {
+            const full = await apiGetOrderByID(id);
+            openWhatsAppNotifyCustomer(full, status);
+          } catch {
+            openWhatsAppNotifyCustomer(order, status);
+          }
+        }
+        await refresh();
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Falha ao atualizar status do pedido.",
+        );
+      }
+    },
+    [refresh, orders],
+  );
 
-  return { orders, refresh, setStatus };
+  const clearAll = useCallback(async () => {
+    await apiClearOrders();
+    await refresh();
+  }, [refresh]);
+
+  return { orders, loading, error, refresh, setStatus, clearAll };
 }

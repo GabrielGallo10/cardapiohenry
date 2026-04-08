@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cardápio Henry",
+  title: "HenryBebidas",
   description:
-    "Distribuidora de bebidas — catálogo, pedidos e painel administrativo.",
+    "HenryBebidas — distribuidora de bebidas: catálogo, pedidos e painel administrativo.",
 };
 
 export default function RootLayout({

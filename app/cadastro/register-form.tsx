@@ -1,14 +1,15 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSession, resolveRedirectAfterLogin } from "@/lib/auth";
-import { registerUser } from "@/lib/users-storage";
+import { registerClient } from "@/lib/auth";
 
 export function RegisterForm() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -21,15 +22,15 @@ export function RegisterForm() {
     router.replace(resolveRedirectAfterLogin(s.role, ""));
   }, [router]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError("A confirmação da senha não confere.");
+      setError("A confirmacao da senha nao confere.");
       return;
     }
     setLoading(true);
-    const result = registerUser({ name, phone, password });
+    const result = await registerClient({ name, email, phone, password });
     if (!result.ok) {
       setError(result.error);
       setLoading(false);
@@ -54,7 +55,7 @@ export function RegisterForm() {
         href="/"
         className="fixed left-4 top-4 z-30 inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 shadow-md backdrop-blur-md transition hover:border-amber-400 hover:text-amber-800 sm:left-6 sm:top-6"
       >
-        <span aria-hidden>←</span> Voltar ao início
+        <span aria-hidden>←</span> Voltar ao inicio
       </Link>
 
       <div className="relative w-full max-w-md">
@@ -69,8 +70,8 @@ export function RegisterForm() {
               Criar conta
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-600">
-              Cadastre-se para pedir pelo cardápio. Em seguida, entre com o mesmo
-              telefone e senha na tela de login.
+              Cadastre-se para pedir pelo cardápio. Use um e-mail válido para
+              recuperar a senha. Na entrada, use o telefone e a senha.
             </p>
           </div>
 
@@ -92,6 +93,25 @@ export function RegisterForm() {
                 placeholder="Seu nome"
                 required
                 minLength={2}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="register-email"
+                className="block text-xs font-medium uppercase tracking-wider text-zinc-600"
+              >
+                E-mail
+              </label>
+              <input
+                id="register-email"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="seu@email.com"
+                required
               />
             </div>
             <div>
@@ -127,7 +147,7 @@ export function RegisterForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                placeholder="Mínimo 4 caracteres"
+                placeholder="Minimo 4 caracteres"
                 required
                 minLength={4}
               />
@@ -161,10 +181,10 @@ export function RegisterForm() {
               disabled={loading}
               className="w-full rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 py-3.5 text-sm font-semibold text-black shadow-md transition hover:from-yellow-400 hover:to-amber-400 disabled:opacity-60"
             >
-              {loading ? "Cadastrando…" : "Cadastrar"}
+              {loading ? "Cadastrando..." : "Cadastrar"}
             </button>
             <p className="text-center text-sm text-zinc-600">
-              Já tem conta?{" "}
+              Ja tem conta?{" "}
               <Link
                 href="/login"
                 className="font-medium text-amber-700 hover:text-amber-900"
@@ -178,3 +198,4 @@ export function RegisterForm() {
     </div>
   );
 }
+

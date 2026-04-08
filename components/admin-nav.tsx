@@ -34,7 +34,7 @@ export function AdminNav() {
                 href="/admin"
                 className="mt-0.5 block text-lg font-semibold tracking-tight text-zinc-900 sm:text-xl"
               >
-                Cardápio Henry
+                HenryBebidas
               </Link>
             </div>
             <button

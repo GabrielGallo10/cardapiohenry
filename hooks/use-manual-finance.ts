@@ -3,47 +3,46 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ManualFinanceEntry, ManualFinanceKind } from "@/lib/types";
 import {
-  addManualFinanceEntry,
-  FINANCE_MANUAL_UPDATED,
-  readManualFinanceEntries,
-  removeManualFinanceEntry,
-} from "@/lib/finance-storage";
+  apiClearManualFinances,
+  apiCreateManualFinance,
+  apiDeleteManualFinance,
+  apiListManualFinances,
+} from "@/lib/api";
 
 export function useManualFinance() {
   const [entries, setEntries] = useState<ManualFinanceEntry[]>([]);
 
-  const refresh = useCallback(() => {
-    setEntries(readManualFinanceEntries());
+  const refresh = useCallback(async () => {
+    const list = await apiListManualFinances();
+    setEntries(list);
   }, []);
 
   useEffect(() => {
-    refresh();
-    const on = () => refresh();
-    window.addEventListener(FINANCE_MANUAL_UPDATED, on);
-    window.addEventListener("storage", on);
-    return () => {
-      window.removeEventListener(FINANCE_MANUAL_UPDATED, on);
-      window.removeEventListener("storage", on);
-    };
+    void refresh();
   }, [refresh]);
 
   const add = useCallback(
-    (input: {
+    async (input: {
       kind: ManualFinanceKind;
       description: string;
       amount: number;
       occurredAt: string;
     }) => {
-      addManualFinanceEntry(input);
-      setEntries(readManualFinanceEntries());
+      await apiCreateManualFinance(input);
+      await refresh();
     },
-    [],
+    [refresh],
   );
 
-  const remove = useCallback((id: string) => {
-    removeManualFinanceEntry(id);
-    setEntries(readManualFinanceEntries());
-  }, []);
+  const remove = useCallback(async (id: string) => {
+    await apiDeleteManualFinance(id);
+    await refresh();
+  }, [refresh]);
 
-  return { entries, add, remove, refresh };
+  const clearAll = useCallback(async () => {
+    await apiClearManualFinances();
+    await refresh();
+  }, [refresh]);
+
+  return { entries, add, remove, clearAll, refresh };
 }

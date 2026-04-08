@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { RegisterForm } from "./register-form";
 
 export const metadata: Metadata = {
-  title: "Cadastro | Cardápio Henry",
+  title: "Cadastro | HenryBebidas",
   description: "Crie sua conta de cliente.",
 };
 

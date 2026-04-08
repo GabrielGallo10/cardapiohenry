@@ -5,12 +5,9 @@ import {
   AdminProductForm,
   type AdminProductFormState,
 } from "@/components/admin-product-form";
-import {
-  addCategoryPreset,
-  CATEGORY_PRESETS_UPDATED,
-  readCategoryPresets,
-} from "@/lib/client-data";
+import { MenuItemPhoto } from "@/components/menu-item-photo";
 import { useMenu } from "@/hooks/use-menu";
+import { apiCreateCategory, apiListCategories, apiUploadImage } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
 
@@ -71,21 +68,22 @@ export default function AdminCardapioPage() {
   >(null);
   const [form, setForm] = useState<AdminProductFormState>(emptyForm);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [presetTick, setPresetTick] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
-    const bump = () => setPresetTick((t) => t + 1);
-    window.addEventListener(CATEGORY_PRESETS_UPDATED, bump);
-    window.addEventListener("storage", bump);
-    return () => {
-      window.removeEventListener(CATEGORY_PRESETS_UPDATED, bump);
-      window.removeEventListener("storage", bump);
-    };
+    void apiListCategories()
+      .then((rows) => {
+        setCategories(rows.map((c) => c.name).filter(Boolean));
+      })
+      .catch(() => {
+        setCategories([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -109,15 +107,16 @@ export default function AdminCardapioPage() {
 
   const suggestedCategories = useMemo(() => {
     const s = new Set<string>();
+    for (const c of categories) {
+      const name = c.trim();
+      if (name) s.add(name);
+    }
     for (const i of items) {
       const c = i.category.trim();
       if (c) s.add(c);
     }
-    for (const c of readCategoryPresets()) {
-      if (c) s.add(c);
-    }
     return Array.from(s);
-  }, [items, presetTick]);
+  }, [items, categories]);
 
   function openNew() {
     setImageError(null);
@@ -150,27 +149,32 @@ export default function AdminCardapioPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function handleImageFile(file: File | null) {
+  async function handleImageFile(file: File | null) {
     setImageError(null);
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       setImageError("Escolha um arquivo de imagem (JPG, PNG, WebP ou GIF).");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = typeof reader.result === "string" ? reader.result : "";
-      if (url.length > MAX_IMAGE_DATA_URL_CHARS) {
-        setImageError(
-          "Imagem grande demais para salvar no navegador. Reduza o tamanho (ex.: ~800px) ou use JPEG mais comprimido.",
-        );
-        return;
-      }
-      setForm((f) => ({ ...f, imageUrl: url }));
-    };
-    reader.onerror = () =>
-      setImageError("Não foi possível ler o arquivo. Tente outra imagem.");
-    reader.readAsDataURL(file);
+    if (file.size > MAX_IMAGE_DATA_URL_CHARS) {
+      setImageError(
+        "Imagem grande demais. Reduza o tamanho (ex.: ~800px) antes do upload.",
+      );
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const uploadedUrl = await apiUploadImage(file);
+      setForm((f) => ({ ...f, imageUrl: uploadedUrl }));
+    } catch (e) {
+      setImageError(
+        e instanceof Error
+          ? `Falha no upload para R2: ${e.message}`
+          : "Falha no upload para R2.",
+      );
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   function handleRemoveImage() {
@@ -179,7 +183,7 @@ export default function AdminCardapioPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     const name = form.name.trim();
     const category = form.category.trim();
@@ -189,7 +193,7 @@ export default function AdminCardapioPage() {
         ? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
         : form.id;
     const trimmedUrl = form.imageUrl.trim();
-    upsert({
+    await upsert({
       id,
       name,
       description: form.description.trim(),
@@ -243,14 +247,24 @@ export default function AdminCardapioPage() {
           suggestedCategories={suggestedCategories}
           imageError={imageError}
           fileInputRef={fileInputRef}
-          onImageFile={handleImageFile}
+          onImageFile={(file) => void handleImageFile(file)}
           onRemoveImage={handleRemoveImage}
-          onSubmit={handleSave}
+          onSubmit={(e) => void handleSave(e)}
           onCancel={closeForm}
-          onCategoryCreated={(name) => {
-            addCategoryPreset(name);
+          onCategoryCreated={async (name) => {
+            try {
+              await apiCreateCategory(name);
+              const rows = await apiListCategories();
+              setCategories(rows.map((c) => c.name).filter(Boolean));
+              return true;
+            } catch {
+              return false;
+            }
           }}
         />
+      ) : null}
+      {uploadingImage ? (
+        <p className="text-sm text-blue-700">Enviando imagem para o R2...</p>
       ) : null}
 
       {!editing ? (
@@ -260,22 +274,11 @@ export default function AdminCardapioPage() {
               key={item.id}
               className="flex items-start gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm sm:gap-4 sm:px-5 sm:py-4"
             >
-              <div className="relative size-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
-                {item.imageUrl ? (
-                  <img
-                    src={item.imageUrl}
-                    alt=""
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <span
-                    className="flex size-full items-center justify-center text-[10px] text-zinc-400"
-                    aria-hidden
-                  >
-                    —
-                  </span>
-                )}
-              </div>
+              <MenuItemPhoto
+                src={item.imageUrl}
+                alt={item.name}
+                variant="list"
+              />
               <div className="min-w-0 flex-1 overflow-hidden">
                 <p className="truncate font-semibold text-zinc-900">
                   {item.name}

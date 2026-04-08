@@ -57,20 +57,6 @@ function IconClientes({ className }: { className?: string }) {
   );
 }
 
-function IconLoja({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function IconArrow({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
@@ -158,7 +144,7 @@ export default function AdminHomePage() {
         </p>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <PanelCard
           href="/admin/cardapio"
           title="Produtos"
@@ -221,22 +207,6 @@ export default function AdminHomePage() {
             borderHover: "hover:shadow-amber-500/12",
             arrow: "group-hover:border-yellow-300 group-hover:bg-yellow-50 group-hover:text-amber-800",
             bar: "from-yellow-400 via-amber-500 to-yellow-500",
-          }}
-        />
-        <PanelCard
-          href="/admin/loja"
-          title="Loja & WhatsApp"
-          description="Confira o número usado quando o cliente envia o pedido e ajuste as informações da sua operação."
-          icon={<IconLoja className="size-7" />}
-          accent={{
-            glow: "bg-sky-300/45",
-            iconBg: "bg-gradient-to-br from-sky-50 to-blue-50/90",
-            iconRing: "ring-sky-200/90",
-            iconText: "text-blue-700",
-            title: "text-blue-950 group-hover:text-blue-800",
-            borderHover: "hover:shadow-sky-500/15",
-            arrow: "group-hover:border-sky-200 group-hover:bg-sky-50 group-hover:text-blue-700",
-            bar: "from-sky-500 via-blue-500 to-blue-600",
           }}
         />
       </div>

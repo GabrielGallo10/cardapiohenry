@@ -2,13 +2,19 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   OrderStatusBadge,
   OrderStatusSelect,
 } from "@/components/order-status-select";
 import { useOrders } from "@/hooks/use-orders";
-import { formatMoney, formatPhoneForDisplay } from "@/lib/format";
+import { apiGetOrderByID } from "@/lib/api";
+import {
+  formatMoney,
+  formatPaymentMethodLabel,
+  formatPhoneForDisplay,
+} from "@/lib/format";
+import { allowedStatusOptions } from "@/lib/order-status-flow";
 import type { OrderStatus } from "@/lib/types";
 import type { AdminCardAccent } from "@/lib/admin-card-accents";
 import {
@@ -82,10 +88,37 @@ export default function AdminPedidoDetalhePage() {
   const id = typeof params.id === "string" ? params.id : "";
   const { orders, setStatus } = useOrders();
 
-  const order = useMemo(
+  const orderFromList = useMemo(
     () => orders.find((o) => o.id === id),
     [orders, id],
   );
+  const [order, setOrder] = useState(orderFromList ?? null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!orderFromList) return;
+    setOrder((prev) => {
+      if (!prev) return orderFromList;
+      const prevHasRealItems = prev.items.some((item) => item.menuItemId !== "total");
+      const prevHasPayment = !!prev.paymentMethod?.trim();
+      if (prevHasRealItems || prevHasPayment) return prev;
+      return orderFromList;
+    });
+  }, [orderFromList]);
+
+  useEffect(() => {
+    if (!id) return;
+    setDetailError(null);
+    void apiGetOrderByID(id)
+      .then((full) => setOrder(full))
+      .catch((err) =>
+        setDetailError(
+          err instanceof Error
+            ? err.message
+            : "Falha ao carregar detalhes completos do pedido.",
+        ),
+      );
+  }, [id]);
 
   if (!id) {
     return null;
@@ -168,12 +201,18 @@ export default function AdminPedidoDetalhePage() {
             {timeStr}
           </span>
         </p>
+        {detailError ? (
+          <p className="mt-3 text-xs font-medium text-red-700">
+            Não foi possível carregar todos os detalhes do pedido: {detailError}
+          </p>
+        ) : null}
       </SurfaceCard>
 
       <SurfaceCard accent={acc.status} title="Alterar status">
         <div className="w-full max-w-md sm:max-w-none">
           <OrderStatusSelect
             value={order.status}
+            options={allowedStatusOptions(order.status)}
             onChange={(s) => setStatus(order.id, s as OrderStatus)}
             className="block w-full min-w-0 sm:inline-block sm:min-w-[280px]"
           />
@@ -225,7 +264,9 @@ export default function AdminPedidoDetalhePage() {
               Forma de pagamento
             </dt>
             <dd className="mt-1.5 font-semibold text-zinc-900">
-              {order.paymentMethod?.trim() || "Não informado"}
+              {order.paymentMethod?.trim()
+                ? formatPaymentMethodLabel(order.paymentMethod)
+                : "Não informado"}
             </dd>
           </div>
         </dl>
