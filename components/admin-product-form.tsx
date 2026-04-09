@@ -296,7 +296,7 @@ export function AdminProductForm({
                     type="button"
                     onClick={() => void handleSaveNewCategory()}
                     disabled={savingCategory}
-                    className="mt-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:from-yellow-400 hover:to-amber-400 disabled:opacity-60"
+                    className="mt-2 rounded-lg bg-linear-to-r from-yellow-500 to-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:from-yellow-400 hover:to-amber-400 disabled:opacity-60"
                   >
                     {savingCategory ? "Salvando..." : "Salvar categoria"}
                   </button>
@@ -324,7 +324,7 @@ export function AdminProductForm({
         <div className="flex flex-wrap gap-3 border-t border-zinc-200 bg-zinc-50/50 px-6 py-4 sm:px-8">
           <button
             type="submit"
-            className="rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:from-yellow-400 hover:to-amber-400"
+            className="rounded-xl bg-linear-to-r from-yellow-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:from-yellow-400 hover:to-amber-400"
           >
             Salvar
           </button>

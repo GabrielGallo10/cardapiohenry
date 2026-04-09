@@ -287,7 +287,7 @@ export default function AdminCardapioPage() {
             <button
               type="button"
               onClick={openNew}
-              className="shrink-0 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-black shadow-md transition hover:from-yellow-400 hover:to-amber-400"
+              className="shrink-0 rounded-xl bg-linear-to-r from-yellow-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-black shadow-md transition hover:from-yellow-400 hover:to-amber-400"
             >
               Novo item
             </button>
