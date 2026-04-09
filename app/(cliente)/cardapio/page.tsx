@@ -54,9 +54,20 @@ export default function CardapioPage() {
   );
 
   const visibleSections = useMemo(() => {
-    if (activeCategory === "all") return byCategory;
+    if (activeCategory === "all") {
+      if (!promotionsCategoryName) return byCategory;
+      const promotionsSection = byCategory.find(
+        ([cat]) => cat === promotionsCategoryName,
+      );
+      const otherSections = byCategory.filter(
+        ([cat]) => cat !== promotionsCategoryName,
+      );
+      return promotionsSection
+        ? [promotionsSection, ...otherSections]
+        : byCategory;
+    }
     return byCategory.filter(([cat]) => cat === activeCategory);
-  }, [byCategory, activeCategory]);
+  }, [byCategory, activeCategory, promotionsCategoryName]);
 
   return (
     <div className="relative min-h-full bg-background text-zinc-900">
