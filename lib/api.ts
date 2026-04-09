@@ -153,6 +153,7 @@ type ApiProductList = {
   id: number;
   nome_categoria: string;
   nome: string;
+  descricao: string;
   preco: number;
   disponivel: boolean;
   url_imagem: string;
@@ -191,7 +192,7 @@ export async function apiListMenuItems(): Promise<MenuItem[]> {
     id: String(p.id),
     category: p.nome_categoria || "Sem categoria",
     name: p.nome,
-    description: "",
+    description: p.descricao || "",
     price: Number(p.preco) || 0,
     available: !!p.disponivel,
     imageUrl: normalizeStorageImageUrl(p.url_imagem || ""),
