@@ -37,6 +37,21 @@ export default function CardapioPage() {
     () => byCategory.map(([name]) => name),
     [byCategory],
   );
+  const promotionsCategoryName = useMemo(
+    () =>
+      categoryNames.find(
+        (cat) => cat.trim().toLocaleLowerCase("pt-BR") === "promoções",
+      ),
+    [categoryNames],
+  );
+  const hasPromocoes = !!promotionsCategoryName;
+  const categoryNamesWithoutPromocoes = useMemo(
+    () =>
+      categoryNames.filter(
+        (cat) => cat.trim().toLocaleLowerCase("pt-BR") !== "promoções",
+      ),
+    [categoryNames],
+  );
 
   const visibleSections = useMemo(() => {
     if (activeCategory === "all") return byCategory;
@@ -86,6 +101,21 @@ export default function CardapioPage() {
         >
           <div className="mx-auto max-w-2xl px-4 py-3">
             <div className="flex gap-2 overflow-x-auto scroll-smooth pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [scrollbar-color:rgba(202,138,4,0.45)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/60">
+              {hasPromocoes ? (
+                <button
+                  key="promoções"
+                  type="button"
+                  onClick={() => setActiveCategory(promotionsCategoryName!)}
+                  className={`max-w-[min(100vw-8rem,280px)] shrink-0 truncate rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                    activeCategory === promotionsCategoryName
+                      ? "border-amber-500 bg-amber-100 text-amber-900"
+                      : "border-amber-400 bg-amber-50 text-amber-900 hover:border-amber-500 hover:bg-amber-100"
+                  }`}
+                  title="Promoções"
+                >
+                  Promoções
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setActiveCategory("all")}
@@ -97,7 +127,7 @@ export default function CardapioPage() {
               >
                 Todos
               </button>
-              {categoryNames.map((cat) => (
+              {categoryNamesWithoutPromocoes.map((cat) => (
                 <button
                   key={cat}
                   type="button"
@@ -170,11 +200,9 @@ export default function CardapioPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-zinc-900">{item.name}</p>
-                      {item.description ? (
-                        <p className="mt-2 text-sm leading-relaxed text-zinc-600">
-                          {item.description}
-                        </p>
-                      ) : null}
+                      <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                        {item.description?.trim() || "Sem descrição."}
+                      </p>
                       <p className="mt-3 text-base font-semibold text-amber-700">
                         {formatMoney(item.price)}
                       </p>
