@@ -37,6 +37,13 @@ export default function CarrinhoPage() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [addrForm, setAddrForm] = useState<AddressFormState>(emptyAddressForm);
 
+  useEffect(() => {
+    const s = getSession();
+    if (s?.role !== "client") {
+      router.replace("/login?next=%2Fcarrinho");
+    }
+  }, [router]);
+
   const refreshAddresses = useCallback(async () => {
     const cp = getSession()?.clientPhone ?? null;
     setClientPhone(cp);

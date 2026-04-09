@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ClientBar } from "@/components/client-bar";
+import { getSession } from "@/lib/auth";
 import { emptyAddressForm, isAddressFormComplete } from "@/lib/address";
 import { apiCreateAddress } from "@/lib/api";
 
@@ -18,6 +19,13 @@ export default function NovoEnderecoPage() {
     const next = searchParams.get("next");
     return next && next.startsWith("/") ? next : "/carrinho";
   }, [searchParams]);
+
+  useEffect(() => {
+    const s = getSession();
+    if (s?.role !== "client") {
+      router.replace(`/login?next=${encodeURIComponent(`/enderecos/novo?next=${backTo}`)}`);
+    }
+  }, [backTo, router]);
 
   function handleStateChange(value: string) {
     const onlyLetters = value.replace(/[^a-zA-Z]/g, "");

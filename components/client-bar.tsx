@@ -8,9 +8,10 @@ type Props = {
   /** Usado só para leitores de ecrã (a barra mostra apenas a logo). */
   title: string;
   trailing?: React.ReactNode;
+  showLogout?: boolean;
 };
 
-export function ClientBar({ title, trailing }: Props) {
+export function ClientBar({ title, trailing, showLogout = true }: Props) {
   const router = useRouter();
 
   function handleLogout() {
@@ -31,13 +32,15 @@ export function ClientBar({ title, trailing }: Props) {
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {trailing}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
-          >
-            Sair
-          </button>
+          {showLogout ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+            >
+              Sair
+            </button>
+          ) : null}
         </div>
       </div>
     </header>

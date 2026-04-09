@@ -1,17 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ClientBar } from "@/components/client-bar";
 import { useCart } from "@/components/cart-provider";
 import { useMenu } from "@/hooks/use-menu";
 import { MenuItemPhoto } from "@/components/menu-item-photo";
+import { getSession } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
 
 export default function CardapioPage() {
+  const router = useRouter();
   const { items } = useMenu();
   const { addItem, itemCount } = useCart();
   const [activeCategory, setActiveCategory] = useState<string | "all">("all");
+  const isLoggedClient = getSession()?.role === "client";
+
+  function goToLogin(next: string) {
+    router.push(`/login?next=${encodeURIComponent(next)}`);
+  }
 
   const byCategory = useMemo(() => {
     const map = new Map<string, typeof items>();
@@ -48,9 +56,17 @@ export default function CardapioPage() {
 
       <ClientBar
         title="Cardápio"
+        showLogout={isLoggedClient}
         trailing={
-          <Link
-            href="/carrinho"
+          <button
+            type="button"
+            onClick={() => {
+              if (!isLoggedClient) {
+                goToLogin("/carrinho");
+                return;
+              }
+              router.push("/carrinho");
+            }}
             className="relative inline-flex items-center rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-black shadow-md transition hover:from-yellow-400 hover:to-amber-400"
           >
             Carrinho
@@ -59,7 +75,7 @@ export default function CardapioPage() {
                 {itemCount > 99 ? "99+" : itemCount}
               </span>
             ) : null}
-          </Link>
+          </button>
         }
       />
 
@@ -104,8 +120,11 @@ export default function CardapioPage() {
       <main className="relative z-10 mx-auto max-w-2xl space-y-12 px-4 py-10 pb-16">
         <div className="text-center">
           <p className="text-sm text-zinc-600">
-            Toque em <span className="font-medium text-amber-700">Adicionar</span>{" "}
-            para levar ao carrinho.
+            Toque em <span className="font-medium text-amber-700">Adicionar</span>
+            {" "}para levar ao carrinho.
+            {!isLoggedClient
+              ? " O login será solicitado antes de continuar."
+              : ""}
           </p>
         </div>
 
@@ -162,13 +181,17 @@ export default function CardapioPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        if (!isLoggedClient) {
+                          goToLogin("/cardapio");
+                          return;
+                        }
                         addItem({
                           menuItemId: item.id,
                           name: item.name,
                           price: item.price,
-                        })
-                      }
+                        });
+                      }}
                       className="shrink-0 self-center rounded-xl border border-amber-500 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-900 transition group-hover:bg-amber-100"
                     >
                       Adicionar

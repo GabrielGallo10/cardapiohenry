@@ -40,11 +40,17 @@ export default function Home() {
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-zinc-600">
-            Consulte marcas e volumes do catálogo, monte seu pedido e finalize
-            pelo contato da distribuidora. Faça login para acessar o cardápio.
+            Consulte marcas e volumes do catálogo sem login. Para adicionar ao
+            carrinho e finalizar pedido, entre na sua conta.
           </p>
 
-          <div className="mt-14 flex justify-center">
+          <div className="mt-14 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/cardapio"
+              className="inline-flex min-w-[220px] items-center justify-center rounded-2xl border border-zinc-300 bg-white px-10 py-4 text-base font-semibold text-zinc-800 shadow-md transition hover:border-amber-300 hover:bg-amber-50"
+            >
+              Visualizar cardápio
+            </Link>
             <Link
               href="/login"
               className="glow-brand inline-flex min-w-[220px] items-center justify-center rounded-2xl bg-gradient-to-r from-yellow-500 to-amber-400 px-10 py-4 text-base font-semibold text-black shadow-xl transition hover:from-yellow-300 hover:to-amber-200"
