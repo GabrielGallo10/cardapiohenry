@@ -7,7 +7,13 @@ import {
 } from "@/components/admin-product-form";
 import { MenuItemPhoto } from "@/components/menu-item-photo";
 import { useMenu } from "@/hooks/use-menu";
-import { apiCreateCategory, apiListCategories, apiUploadImage } from "@/lib/api";
+import {
+  ApiHttpError,
+  apiCreateCategory,
+  apiDeleteCategory,
+  apiListCategories,
+  apiUploadImage,
+} from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
 
@@ -75,6 +81,11 @@ export default function AdminCardapioPage() {
     name: string;
   } | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState<{
+    type: "error" | "success";
+    text: string;
+  } | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState(false);
 
   useEffect(() => {
     void apiListCategories()
@@ -83,6 +94,10 @@ export default function AdminCardapioPage() {
       })
       .catch(() => {
         setCategories([]);
+        setFeedback({
+          type: "error",
+          text: "Nao foi possivel carregar as categorias.",
+        });
       });
   }, []);
 
@@ -119,6 +134,7 @@ export default function AdminCardapioPage() {
   }, [items, categories]);
 
   function openNew() {
+    setFeedback(null);
     setImageError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setEditing({ ...emptyForm, id: "", isNew: true } as MenuItem & {
@@ -128,6 +144,7 @@ export default function AdminCardapioPage() {
   }
 
   function openEdit(item: MenuItem) {
+    setFeedback(null);
     setImageError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setEditing({ ...item, isNew: false });
@@ -185,6 +202,7 @@ export default function AdminCardapioPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    setFeedback(null);
     const name = form.name.trim();
     const category = form.category.trim();
     if (!name || !category) return;
@@ -193,21 +211,59 @@ export default function AdminCardapioPage() {
         ? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
         : form.id;
     const trimmedUrl = form.imageUrl.trim();
-    await upsert({
-      id,
-      name,
-      description: form.description.trim(),
-      price: Number(form.price) || 0,
-      category,
-      available: form.available,
-      ...(trimmedUrl ? { imageUrl: trimmedUrl } : {}),
-    });
-    closeForm();
+    try {
+      await upsert({
+        id,
+        name,
+        description: form.description.trim(),
+        price: Number(form.price) || 0,
+        category,
+        available: form.available,
+        ...(trimmedUrl ? { imageUrl: trimmedUrl } : {}),
+      });
+      setFeedback({
+        type: "success",
+        text: editing?.isNew ? "Produto criado com sucesso." : "Produto atualizado com sucesso.",
+      });
+      closeForm();
+    } catch (e) {
+      if (e instanceof ApiHttpError) {
+        if (e.status === 401) {
+          setFeedback({
+            type: "error",
+            text: "Sua sessao expirou. Faca login novamente.",
+          });
+          return;
+        }
+        if (e.status === 409) {
+          setFeedback({
+            type: "error",
+            text: "Conflito ao salvar produto. Revise os dados e tente novamente.",
+          });
+          return;
+        }
+      }
+      setFeedback({
+        type: "error",
+        text: "Nao foi possivel salvar o produto. Tente novamente.",
+      });
+    }
   }
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-10">
       <header className="space-y-3">
+        {feedback ? (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm ${
+              feedback.type === "error"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {feedback.text}
+          </div>
+        ) : null}
         {editing ? (
           <button
             type="button"
@@ -256,9 +312,49 @@ export default function AdminCardapioPage() {
               await apiCreateCategory(name);
               const rows = await apiListCategories();
               setCategories(rows.map((c) => c.name).filter(Boolean));
-              return true;
-            } catch {
-              return false;
+              return { ok: true };
+            } catch (e) {
+              if (e instanceof ApiHttpError) {
+                if (e.status === 401) {
+                  return {
+                    ok: false,
+                    message: "Sua sessao expirou. Faca login novamente.",
+                  };
+                }
+                if (e.status === 409) {
+                  return { ok: false, message: "Essa categoria ja existe." };
+                }
+              }
+              return { ok: false, message: "Nao foi possivel criar a categoria." };
+            }
+          }}
+          onCategoryDeleted={async (name) => {
+            try {
+              const rows = await apiListCategories();
+              const target = rows.find(
+                (c) => c.name.trim().toLowerCase() === name.trim().toLowerCase(),
+              );
+              if (!target) {
+                return { ok: false, message: "Categoria nao encontrada." };
+              }
+              await apiDeleteCategory(target.id);
+              const updated = await apiListCategories();
+              setCategories(updated.map((c) => c.name).filter(Boolean));
+              return { ok: true };
+            } catch (e) {
+              if (e instanceof ApiHttpError && e.status === 409) {
+                return {
+                  ok: false,
+                  message: "Essa categoria possui produtos vinculados.",
+                };
+              }
+              if (e instanceof ApiHttpError && e.status === 401) {
+                return {
+                  ok: false,
+                  message: "Sua sessao expirou. Faca login novamente.",
+                };
+              }
+              return { ok: false, message: "Nao foi possivel remover a categoria." };
             }
           }}
         />
@@ -366,13 +462,34 @@ export default function AdminCardapioPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  remove(deleteTarget.id);
-                  setDeleteTarget(null);
+                onClick={async () => {
+                  if (deletingProduct) return;
+                  setDeletingProduct(true);
+                  setFeedback(null);
+                  try {
+                    await remove(deleteTarget.id);
+                    setDeleteTarget(null);
+                    setFeedback({ type: "success", text: "Produto excluido com sucesso." });
+                  } catch (e) {
+                    if (e instanceof ApiHttpError && e.status === 401) {
+                      setFeedback({
+                        type: "error",
+                        text: "Sua sessao expirou. Faca login novamente.",
+                      });
+                    } else {
+                      setFeedback({
+                        type: "error",
+                        text: "Nao foi possivel excluir o produto. Tente novamente.",
+                      });
+                    }
+                  } finally {
+                    setDeletingProduct(false);
+                  }
                 }}
-                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+                disabled={deletingProduct}
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
               >
-                Excluir
+                {deletingProduct ? "Excluindo..." : "Excluir"}
               </button>
             </div>
           </div>

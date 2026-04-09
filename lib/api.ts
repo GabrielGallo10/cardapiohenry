@@ -3,7 +3,8 @@
 import type { ManualFinanceEntry, MenuItem, Order, SavedAddress } from "./types";
 import { orderItemsTotal } from "./order-totals";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ?? "https://cardapiohenry-api.onrender.com";
 
 /** Erro HTTP da API com status (para distinguir 401 de 500 no login, etc.). */
 export class ApiHttpError extends Error {
@@ -174,6 +175,13 @@ export async function apiCreateCategory(name: string) {
     method: "POST",
     auth: true,
     body: JSON.stringify({ name }),
+  });
+}
+
+export async function apiDeleteCategory(id: number) {
+  await apiFetch<{ message: string }>(`/categorias/${id}`, {
+    method: "DELETE",
+    auth: true,
   });
 }
 

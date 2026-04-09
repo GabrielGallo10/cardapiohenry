@@ -40,7 +40,8 @@ type AdminProductFormProps = {
   onRemoveImage: () => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
-  onCategoryCreated: (name: string) => Promise<boolean>;
+  onCategoryCreated: (name: string) => Promise<{ ok: boolean; message?: string }>;
+  onCategoryDeleted: (name: string) => Promise<{ ok: boolean; message?: string }>;
 };
 
 export function AdminProductForm({
@@ -55,11 +56,15 @@ export function AdminProductForm({
   onSubmit,
   onCancel,
   onCategoryCreated,
+  onCategoryDeleted,
 }: AdminProductFormProps) {
   const [showCategoryCreator, setShowCategoryCreator] = useState(false);
   const [draftCategoryName, setDraftCategoryName] = useState("");
   const [savingCategory, setSavingCategory] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<string | null>(
+    null,
+  );
 
   const sortedCats = [...suggestedCategories].sort((a, b) =>
     a.localeCompare(b, "pt-BR"),
@@ -72,9 +77,9 @@ export function AdminProductForm({
     if (!name || savingCategory) return;
     setSavingCategory(true);
     setCategoryError(null);
-    const ok = await onCategoryCreated(name);
-    if (!ok) {
-      setCategoryError("Nao foi possivel criar a categoria.");
+    const result = await onCategoryCreated(name);
+    if (!result.ok) {
+      setCategoryError(result.message ?? "Nao foi possivel criar a categoria.");
       setSavingCategory(false);
       return;
     }
@@ -84,8 +89,32 @@ export function AdminProductForm({
     setSavingCategory(false);
   }
 
+  async function handleDeleteSelectedCategory() {
+    const name = form.category.trim();
+    if (!name || savingCategory) return;
+    setCategoryDeleteTarget(name);
+  }
+
+  async function confirmDeleteCategory() {
+    const name = categoryDeleteTarget?.trim();
+    if (!name || savingCategory) return;
+    setSavingCategory(true);
+    setCategoryError(null);
+    const result = await onCategoryDeleted(name);
+    if (!result.ok) {
+      setCategoryError(result.message ?? "Nao foi possivel deletar a categoria.");
+      setSavingCategory(false);
+      setCategoryDeleteTarget(null);
+      return;
+    }
+    setForm((f) => ({ ...f, category: "" }));
+    setSavingCategory(false);
+    setCategoryDeleteTarget(null);
+  }
+
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-lg">
+    <>
+      <div className="w-full overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-lg">
       <div className="border-b border-zinc-100 px-6 py-4 sm:px-8">
         <h2 className="text-lg font-semibold text-zinc-900">
           {isNew ? "Novo item" : "Editar item"}
@@ -234,6 +263,17 @@ export function AdminProductForm({
               >
                 {showCategoryCreator ? "Fechar" : "Criar categoria"}
               </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteSelectedCategory()}
+                disabled={!form.category.trim() || savingCategory}
+                className="mt-2 w-full rounded-xl border border-red-300/90 bg-red-50/60 px-3 py-2 text-sm font-medium text-red-700 transition hover:border-red-400 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                Deletar categoria selecionada
+              </button>
+              {categoryError ? (
+                <p className="mt-2 text-sm text-red-600">{categoryError}</p>
+              ) : null}
 
               {showCategoryCreator ? (
                 <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-3">
@@ -260,9 +300,6 @@ export function AdminProductForm({
                   >
                     {savingCategory ? "Salvando..." : "Salvar categoria"}
                   </button>
-                  {categoryError ? (
-                    <p className="mt-2 text-sm text-red-600">{categoryError}</p>
-                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -299,7 +336,56 @@ export function AdminProductForm({
             Cancelar
           </button>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+
+      {categoryDeleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-zinc-900/45 backdrop-blur-[2px]"
+            aria-label="Fechar"
+            onClick={() => setCategoryDeleteTarget(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-category-title"
+            className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl"
+          >
+            <h2
+              id="delete-category-title"
+              className="text-lg font-semibold tracking-tight text-zinc-900"
+            >
+              Deletar categoria?
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-600">
+              Tem certeza de que deseja deletar{" "}
+              <span className="font-medium text-zinc-800">
+                &quot;{categoryDeleteTarget}&quot;
+              </span>
+              ? Esta ação não pode ser desfeita.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCategoryDeleteTarget(null)}
+                className="rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteCategory()}
+                disabled={savingCategory}
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+              >
+                {savingCategory ? "Deletando..." : "Deletar categoria"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
