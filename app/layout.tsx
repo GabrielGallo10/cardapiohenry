@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: "HenryBebidas",
   description:
     "HenryBebidas — distribuidora de bebidas: catálogo, pedidos e painel administrativo.",
+  icons: {
+    icon: "/logohenry.png",
+    shortcut: "/logohenry.png",
+    apple: "/logohenry.png",
+  },
 };
 
 export default function RootLayout({
