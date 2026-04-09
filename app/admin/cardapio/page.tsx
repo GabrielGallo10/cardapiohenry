@@ -86,6 +86,7 @@ export default function AdminCardapioPage() {
     text: string;
   } | null>(null);
   const [deletingProduct, setDeletingProduct] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string | "all">("all");
 
   useEffect(() => {
     void apiListCategories()
@@ -119,6 +120,18 @@ export default function AdminCardapioPage() {
     () => [...items].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
     [items],
   );
+  const categoryNames = useMemo(() => {
+    const unique = new Set(
+      sorted
+        .map((item) => item.category.trim())
+        .filter((category) => category.length > 0),
+    );
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [sorted]);
+  const visibleItems = useMemo(() => {
+    if (activeCategory === "all") return sorted;
+    return sorted.filter((item) => item.category === activeCategory);
+  }, [sorted, activeCategory]);
 
   const suggestedCategories = useMemo(() => {
     const s = new Set<string>();
@@ -364,8 +377,44 @@ export default function AdminCardapioPage() {
       ) : null}
 
       {!editing ? (
-        <ul className="space-y-3">
-          {sorted.map((item) => (
+        <>
+          {categoryNames.length > 0 ? (
+            <nav
+              aria-label="Filtrar produtos por categoria"
+              className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 shadow-sm"
+            >
+              <div className="flex gap-2 overflow-x-auto scroll-smooth pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [scrollbar-color:rgba(202,138,4,0.45)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/60">
+                <button
+                  type="button"
+                  onClick={() => setActiveCategory("all")}
+                  className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    activeCategory === "all"
+                      ? "border-amber-500 bg-amber-100 text-amber-900"
+                      : "border-zinc-300 bg-zinc-100 text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
+                  }`}
+                >
+                  Todos
+                </button>
+                {categoryNames.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => setActiveCategory(category)}
+                    className={`max-w-[min(100vw-8rem,280px)] shrink-0 truncate rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      activeCategory === category
+                        ? "border-amber-500 bg-amber-100 text-amber-900"
+                        : "border-zinc-300 bg-zinc-100 text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
+                    }`}
+                    title={category}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </nav>
+          ) : null}
+          <ul className="space-y-3">
+            {visibleItems.map((item) => (
             <li
               key={item.id}
               className="flex items-start gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm sm:gap-4 sm:px-5 sm:py-4"
@@ -421,8 +470,9 @@ export default function AdminCardapioPage() {
                 </button>
               </div>
             </li>
-          ))}
-        </ul>
+            ))}
+          </ul>
+        </>
       ) : null}
 
       {deleteTarget ? (
