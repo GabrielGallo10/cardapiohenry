@@ -187,12 +187,27 @@ export async function apiDeleteCategory(id: number) {
 }
 
 export async function apiListMenuItems(): Promise<MenuItem[]> {
-  const list = await apiFetch<ApiProductList[]>("/produtos", { auth: true });
+  const list = await apiFetch<ApiProductList[]>("/produtos");
+
+  const withDescription = await Promise.all(
+    list.map(async (p) => {
+      const fromList = (p.descricao || "").trim();
+      if (fromList) return { id: p.id, descricao: fromList };
+      try {
+        const detail = await apiFetch<ApiProductByID>(`/produtos/${p.id}`);
+        return { id: p.id, descricao: (detail.descricao || "").trim() };
+      } catch {
+        return { id: p.id, descricao: "" };
+      }
+    }),
+  );
+  const descriptionById = new Map(withDescription.map((d) => [d.id, d.descricao]));
+
   return list.map((p) => ({
     id: String(p.id),
     category: p.nome_categoria || "Sem categoria",
     name: p.nome,
-    description: p.descricao || "",
+    description: descriptionById.get(p.id) || "",
     price: Number(p.preco) || 0,
     available: !!p.disponivel,
     imageUrl: normalizeStorageImageUrl(p.url_imagem || ""),
