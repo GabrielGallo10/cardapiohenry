@@ -68,7 +68,7 @@ const emptyForm: AdminProductFormState = {
 };
 
 export default function AdminCardapioPage() {
-  const { items, upsert, remove } = useMenu();
+  const { items, loading, upsert, remove } = useMenu();
   const [editing, setEditing] = useState<
     (MenuItem & { isNew?: boolean }) | null
   >(null);
@@ -306,6 +306,15 @@ export default function AdminCardapioPage() {
             </button>
           ) : null}
         </div>
+        {loading ? (
+          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 shadow-sm">
+            <span
+              className="size-3.5 animate-spin rounded-full border-2 border-blue-500/35 border-t-amber-500"
+              aria-hidden
+            />
+            Carregando...
+          </div>
+        ) : null}
       </header>
 
       {editing ? (

@@ -12,7 +12,7 @@ import { formatMoney } from "@/lib/format";
 
 export default function CardapioPage() {
   const router = useRouter();
-  const { items } = useMenu();
+  const { items, loading } = useMenu();
   const { addItem, itemCount } = useCart();
   const [activeCategory, setActiveCategory] = useState<string | "all">("all");
   const isLoggedClient = getSession()?.role === "client";
@@ -160,6 +160,15 @@ export default function CardapioPage() {
 
       <main className="relative z-10 mx-auto max-w-2xl space-y-12 px-4 py-10 pb-16">
         <div className="text-center">
+          {loading ? (
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 shadow-sm">
+              <span
+                className="size-3.5 animate-spin rounded-full border-2 border-blue-500/35 border-t-amber-500"
+                aria-hidden
+              />
+              Carregando...
+            </div>
+          ) : null}
           <p className="text-sm text-zinc-600">
             Toque em <span className="font-medium text-amber-700">Adicionar</span>
             {" "}para levar ao carrinho.

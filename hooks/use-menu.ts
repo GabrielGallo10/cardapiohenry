@@ -10,13 +10,17 @@ import {
 
 export function useMenu() {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await apiListMenuItems();
       setItems(data);
     } catch {
       // Mantém lista atual em caso de falha transitória de rede/API.
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -79,7 +83,7 @@ export function useMenu() {
   const remove = useCallback(async (id: string) => {
     await apiDeleteMenuItem(id);
     await refresh();
-  }, []);
+  }, [refresh]);
 
-  return { items, refresh, upsert, remove };
+  return { items, loading, refresh, upsert, remove };
 }
