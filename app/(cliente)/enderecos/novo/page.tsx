@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { ClientBar } from "@/components/client-bar";
 import { getSession } from "@/lib/auth";
 import { emptyAddressForm, isAddressFormComplete } from "@/lib/address";
 import { apiCreateAddress } from "@/lib/api";
 
-export default function NovoEnderecoPage() {
+function NovoEnderecoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ ...emptyAddressForm });
@@ -286,5 +286,13 @@ export default function NovoEnderecoPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function NovoEnderecoPage() {
+  return (
+    <Suspense fallback={null}>
+      <NovoEnderecoContent />
+    </Suspense>
   );
 }
