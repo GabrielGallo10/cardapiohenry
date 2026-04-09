@@ -15,8 +15,11 @@ export function useOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await apiListOrders();
@@ -29,12 +32,61 @@ export function useOrders() {
       );
       setOrders([]);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const apiBase =
+      process.env.NEXT_PUBLIC_API_URL ?? "https://cardapiohenry-api.onrender.com";
+    const wsBase = apiBase.startsWith("https://")
+      ? `wss://${apiBase.slice("https://".length)}`
+      : apiBase.startsWith("http://")
+        ? `ws://${apiBase.slice("http://".length)}`
+        : apiBase;
+
+    let ws: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    let closedByEffect = false;
+
+    const connect = () => {
+      if (closedByEffect) return;
+      ws = new WebSocket(`${wsBase}/ws`);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as { type?: string };
+          if (data.type === "orders.updated") {
+            void refresh({ silent: true });
+          }
+        } catch {
+          // Ignora payload inválido.
+        }
+      };
+
+      ws.onclose = () => {
+        if (closedByEffect) return;
+        reconnectTimer = window.setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => {
+        ws?.close();
+      };
+    };
+
+    connect();
+
+    return () => {
+      closedByEffect = true;
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      ws?.close();
+    };
   }, [refresh]);
 
   const setStatus = useCallback(
