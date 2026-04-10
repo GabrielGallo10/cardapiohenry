@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClientBar } from "@/components/client-bar";
 import { useCart } from "@/components/cart-provider";
 import {
@@ -13,6 +13,13 @@ import {
   type AddressFormState,
 } from "@/lib/address";
 import { apiCreateAddress, apiCreateOrder, apiListAddresses } from "@/lib/api";
+import {
+  creditBrandOptions,
+  debitBrandOptions,
+  formatFeePercentForDisplay,
+  getCardFeePercent,
+  type CardPaymentKind,
+} from "@/lib/card-payment";
 import { formatMoney, formatPhoneForDisplay } from "@/lib/format";
 import { getSession } from "@/lib/auth";
 import type { SavedAddress } from "@/lib/types";
@@ -28,6 +35,8 @@ export default function CarrinhoPage() {
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [cardKind, setCardKind] = useState<CardPaymentKind>("credito");
+  const [cardBrand, setCardBrand] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const router = useRouter();
@@ -86,6 +95,15 @@ export default function CarrinhoPage() {
   const hasSavedAddresses = clientPhone !== null && savedAddresses.length > 0;
   const showFormBlock = !clientPhone;
 
+  const isCardOnDelivery = paymentMethod === "Cartão na entrega";
+  const cardFeePercent = useMemo(() => {
+    if (!isCardOnDelivery || !cardBrand) return null;
+    return getCardFeePercent(cardKind, cardBrand);
+  }, [isCardOnDelivery, cardKind, cardBrand]);
+  const cardFeeAmount =
+    cardFeePercent != null ? (subtotal * cardFeePercent) / 100 : 0;
+  const orderTotalWithFee = subtotal + cardFeeAmount;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -131,6 +149,17 @@ export default function CarrinhoPage() {
       return;
     }
 
+    if (paymentMethod === "Cartão na entrega") {
+      if (!cardBrand.trim()) {
+        setError("Selecione a bandeira do cartão.");
+        return;
+      }
+      if (getCardFeePercent(cardKind, cardBrand) == null) {
+        setError("Combinação de cartão e bandeira inválida.");
+        return;
+      }
+    }
+
     try {
       await apiCreateOrder({
         nome_cliente: n,
@@ -142,12 +171,20 @@ export default function CarrinhoPage() {
           id_produto: Number(l.menuItemId),
           quantidade: l.quantity,
         })),
+        ...(paymentMethod === "Cartão na entrega"
+          ? {
+              tipo_cartao: cardKind,
+              bandeira: cardBrand.trim().toLowerCase(),
+            }
+          : {}),
       });
       clear();
       setName("");
       setPhone("");
       setNotes("");
       setPaymentMethod("PIX");
+      setCardKind("credito");
+      setCardBrand("");
       setAddrForm({ ...emptyAddressForm });
       await refreshAddresses();
       setOrderSuccess(true);
@@ -272,6 +309,26 @@ export default function CarrinhoPage() {
                   {formatMoney(subtotal)}
                 </span>
               </p>
+              {isCardOnDelivery && cardFeePercent != null ? (
+                <>
+                  <p className="mt-2 flex items-baseline justify-between gap-4 text-sm text-zinc-600">
+                    <span>
+                      Taxa maquineta ({formatFeePercentForDisplay(cardFeePercent)}%)
+                    </span>
+                    <span className="font-medium text-zinc-800">
+                      {formatMoney(cardFeeAmount)}
+                    </span>
+                  </p>
+                  <p className="mt-3 flex items-baseline justify-between gap-4 border-t border-amber-200/60 pt-3">
+                    <span className="text-sm font-semibold text-zinc-800">
+                      Total estimado
+                    </span>
+                    <span className="text-xl font-bold text-amber-900">
+                      {formatMoney(orderTotalWithFee)}
+                    </span>
+                  </p>
+                </>
+              ) : null}
               <p className="mt-3 text-xs leading-relaxed text-zinc-600">
                 Sem pagamento no site. Ao concluir, seu pedido aparece para a
                 equipe e você será avisado pelo WhatsApp com o resumo e cada
@@ -562,15 +619,102 @@ export default function CarrinhoPage() {
                 <select
                   id="payment-method"
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => {
+                    setPaymentMethod(e.target.value);
+                    if (e.target.value !== "Cartão na entrega") {
+                      setCardBrand("");
+                    }
+                  }}
                   className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 >
                   <option value="PIX">PIX</option>
                   <option value="Dinheiro na entrega">Dinheiro na entrega</option>
-                  <option value="Cartão na entrega">Cartão na entrega</option>
+                  <option value="Cartão na entrega">
+                    Cartão na entrega (crédito ou débito)
+                  </option>
                   <option value="A combinar">A combinar</option>
                 </select>
               </div>
+
+              {isCardOnDelivery ? (
+                <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                  <p className="text-xs font-medium leading-relaxed text-amber-950">
+                    Pagamento com{" "}
+                    <span className="font-semibold">cartão de crédito ou débito</span>{" "}
+                    na entrega inclui taxa da maquineta, já somada ao total do
+                    pedido:
+                  </p>
+                  <ul className="list-inside list-disc space-y-1 text-xs text-amber-950/90">
+                    <li>
+                      <span className="font-semibold">Crédito:</span> Visa e
+                      Mastercard {formatFeePercentForDisplay(3.15)}%; Amex e Elo{" "}
+                      {formatFeePercentForDisplay(4.91)}%.
+                    </li>
+                    <li>
+                      <span className="font-semibold">Débito:</span> Visa e
+                      Mastercard {formatFeePercentForDisplay(1.37)}%; Elo{" "}
+                      {formatFeePercentForDisplay(2.58)}%.
+                    </li>
+                  </ul>
+                  <fieldset className="space-y-2">
+                    <legend className="text-xs font-semibold uppercase tracking-wider text-zinc-700">
+                      Tipo de cartão
+                    </legend>
+                    <div className="flex flex-wrap gap-3">
+                      <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                        <input
+                          type="radio"
+                          name="card-kind"
+                          checked={cardKind === "credito"}
+                          onChange={() => {
+                            setCardKind("credito");
+                            setCardBrand("");
+                          }}
+                          className="border-zinc-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        Crédito
+                      </label>
+                      <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                        <input
+                          type="radio"
+                          name="card-kind"
+                          checked={cardKind === "debito"}
+                          onChange={() => {
+                            setCardKind("debito");
+                            setCardBrand("");
+                          }}
+                          className="border-zinc-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        Débito
+                      </label>
+                    </div>
+                  </fieldset>
+                  <div>
+                    <label
+                      htmlFor="card-brand"
+                      className="block text-xs font-medium uppercase tracking-wider text-zinc-600"
+                    >
+                      Bandeira
+                    </label>
+                    <select
+                      id="card-brand"
+                      value={cardBrand}
+                      onChange={(e) => setCardBrand(e.target.value)}
+                      className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="">Selecione a bandeira</option>
+                      {(cardKind === "credito"
+                        ? creditBrandOptions()
+                        : debitBrandOptions()
+                      ).map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : null}
 
               <div>
                 <label

@@ -449,6 +449,10 @@ export async function apiCreateOrder(input: {
   forma_pagamento: string;
   observacoes?: string;
   items_pedido: { id_produto: number; quantidade: number }[];
+  /** Só para "Cartão na entrega": `credito` ou `debito`. */
+  tipo_cartao?: string;
+  /** Só para cartão: `visa` | `mastercard` | `amex` | `elo` (Amex só crédito). */
+  bandeira?: string;
 }) {
   await apiFetch("/pedidos", {
     method: "POST",
