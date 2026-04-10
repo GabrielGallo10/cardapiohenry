@@ -5,6 +5,14 @@ import type { Order, OrderItem, OrderStatus } from "./types";
 
 const DIVIDER = "━━━━━━━━━━━━━━━━";
 
+/** Chave PIX (CNPJ) da HenryBebidas — exibida na mensagem ao cliente quando o pedido é PIX e o status vai para em preparo. */
+const PIX_KEY_HENRY = "65.101.324/0001-61";
+
+function isPixPayment(method: string | undefined): boolean {
+  const t = method?.trim().toLowerCase() ?? "";
+  return t === "pix" || t.includes("pix");
+}
+
 export function buildOrderWhatsAppText(params: {
   customerName: string;
   customerPhone: string;
@@ -111,6 +119,15 @@ export function buildCustomerStatusWhatsAppMessage(
           "💳 *Pagamento*",
           formatPaymentMethodLabel(order.paymentMethod),
         );
+        if (isPixPayment(order.paymentMethod)) {
+          parts.push(
+            "",
+            "🔑 *Chave PIX*",
+            PIX_KEY_HENRY,
+            "",
+            "Após realizar o pagamento, *envie o comprovante neste chat do WhatsApp* para agilizarmos a separação do seu pedido.",
+          );
+        }
       }
       parts.push(
         "",
