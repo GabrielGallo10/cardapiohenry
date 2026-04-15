@@ -1,8 +1,13 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandLogoLink } from "@/components/brand-logo-link";
+import {
+  adminPedidosBadgeLabel,
+  useAdminUnseenPedidos,
+} from "@/components/admin-order-notification-provider";
 import { clearSession } from "@/lib/auth";
 
 const navLinkClass =
@@ -12,6 +17,30 @@ const mobileCarouselTrack =
   "flex snap-x snap-mandatory flex-nowrap gap-2 overflow-x-auto overscroll-x-contain py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 const mobileCarouselLink = `${navLinkClass} shrink-0 snap-start whitespace-nowrap px-4`;
+
+function PedidosNavLink({
+  href,
+  className,
+  children,
+}: {
+  href: string;
+  className: string;
+  children: ReactNode;
+}) {
+  const { unseenPedidos } = useAdminUnseenPedidos();
+  const label = adminPedidosBadgeLabel(unseenPedidos);
+
+  return (
+    <Link href={href} className={`relative ${className}`}>
+      {children}
+      {label ? (
+        <span className="absolute -right-0.5 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-bold text-white">
+          {label}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
 
 export function AdminNav() {
   const router = useRouter();
@@ -53,9 +82,9 @@ export function AdminNav() {
                 <Link href="/admin/cardapio" className={mobileCarouselLink}>
                   Produtos
                 </Link>
-                <Link href="/admin/pedidos" className={mobileCarouselLink}>
+                <PedidosNavLink href="/admin/pedidos" className={mobileCarouselLink}>
                   Pedidos
-                </Link>
+                </PedidosNavLink>
                 <Link href="/admin/clientes" className={mobileCarouselLink}>
                   Clientes
                 </Link>
@@ -72,9 +101,9 @@ export function AdminNav() {
               <Link href="/admin/cardapio" className={navLinkClass}>
                 Produtos
               </Link>
-              <Link href="/admin/pedidos" className={navLinkClass}>
+              <PedidosNavLink href="/admin/pedidos" className={navLinkClass}>
                 Pedidos
-              </Link>
+              </PedidosNavLink>
               <Link href="/admin/clientes" className={navLinkClass}>
                 Clientes
               </Link>

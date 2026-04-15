@@ -148,7 +148,10 @@ export default function AdminPedidoDetalhePage() {
     );
   }
 
-  const total = orderTotal(order.items);
+  const total =
+    typeof order.totalAmount === "number" && order.totalAmount > 0
+      ? order.totalAmount
+      : orderTotal(order.items);
   const d = new Date(order.createdAt);
   const dateStr = d.toLocaleDateString("pt-BR", {
     weekday: "long",

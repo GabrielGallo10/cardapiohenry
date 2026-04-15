@@ -373,6 +373,7 @@ function toOrderFromList(p: ApiOrderList): Order {
       },
     ],
     status: p.status_pedido,
+    totalAmount: Number(p.valor_total) || 0,
     paymentMethod,
   };
 }
@@ -402,6 +403,7 @@ function toOrderFromDetail(p: ApiOrderByID): Order {
       }),
     ),
     status: p.status_pedido,
+    totalAmount: Number(p.valor_total) || 0,
     paymentMethod,
   };
 }

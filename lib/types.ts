@@ -56,6 +56,8 @@ export type Order = {
   notes: string;
   items: OrderItem[];
   status: OrderStatus;
+  /** Total final do pedido vindo da API (inclui taxas quando aplicável). */
+  totalAmount?: number;
   /** Forma de pagamento escolhida no carrinho (pedidos antigos podem não ter). */
   paymentMethod?: string;
 };
