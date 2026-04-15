@@ -17,6 +17,7 @@ import {
 import { allowedStatusOptions } from "@/lib/order-status-flow";
 import type { OrderStatus } from "@/lib/types";
 import type { AdminCardAccent } from "@/lib/admin-card-accents";
+import { useAdminUnseenPedidos } from "@/components/admin-order-notification-provider";
 import {
   ADMIN_CARD_BODY_BG,
   ADMIN_CARD_GLOW,
@@ -86,6 +87,7 @@ function SurfaceCard({
 export default function AdminPedidoDetalhePage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
+  const { markPedidoDetalheAberto } = useAdminUnseenPedidos();
   const { orders, setStatus } = useOrders();
 
   const orderFromList = useMemo(
@@ -105,6 +107,11 @@ export default function AdminPedidoDetalhePage() {
       return orderFromList;
     });
   }, [orderFromList]);
+
+  useEffect(() => {
+    if (!id) return;
+    markPedidoDetalheAberto(id);
+  }, [id, markPedidoDetalheAberto]);
 
   useEffect(() => {
     if (!id) return;

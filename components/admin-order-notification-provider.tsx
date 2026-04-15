@@ -8,18 +8,46 @@ import {
   useRef,
   useState,
 } from "react";
-import { usePathname } from "next/navigation";
 import { apiListOrders } from "@/lib/api";
 import { getSession } from "@/lib/auth";
+import type { OrderStatus } from "@/lib/types";
 
 const BADGE_CAP = 5;
+const STORAGE_KEY = "henry-admin-order-detail-viewed-ids";
+
+function loadViewedIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.filter((x): x is string => typeof x === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistViewedIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+}
 
 type Ctx = {
-  /** Pedidos novos desde o último snapshot (visitou área de pedidos). */
+  /** Pedidos com status `novo` cujo detalhe o admin ainda não abriu. */
   unseenPedidos: number;
+  isPedidoNovoNaoAberto: (order: { id: string; status: OrderStatus }) => boolean;
+  /** Chamar ao abrir `/admin/pedidos/[id]` — remove destaque e decrementa o badge. */
+  markPedidoDetalheAberto: (orderId: string) => void;
 };
 
-const AdminOrderNotifContext = createContext<Ctx>({ unseenPedidos: 0 });
+const defaultCtx: Ctx = {
+  unseenPedidos: 0,
+  isPedidoNovoNaoAberto: () => false,
+  markPedidoDetalheAberto: () => {},
+};
+
+const AdminOrderNotifContext = createContext<Ctx>(defaultCtx);
 
 export function useAdminUnseenPedidos() {
   return useContext(AdminOrderNotifContext);
@@ -30,15 +58,14 @@ export function AdminOrderNotificationProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const [viewedIds, setViewedIds] = useState<Set<string>>(() => new Set());
+  const [hydrated, setHydrated] = useState(false);
   const [unseenPedidos, setUnseenPedidos] = useState(0);
-  const ackIdsRef = useRef<Set<string>>(new Set());
-  const primedRef = useRef(false);
+  const viewedIdsRef = useRef<Set<string>>(new Set());
 
-  const snapshotFromOrders = useCallback((orders: { id: string }[]) => {
-    ackIdsRef.current = new Set(orders.map((o) => o.id));
-    primedRef.current = true;
-  }, []);
+  useEffect(() => {
+    viewedIdsRef.current = viewedIds;
+  }, [viewedIds]);
 
   const loadOrders = useCallback(async () => {
     const s = getSession();
@@ -46,51 +73,27 @@ export function AdminOrderNotificationProvider({
     return apiListOrders();
   }, []);
 
-  /** Primeira carga: considera pedidos atuais como “já vistos”, badge 0. */
-  const primeOnce = useCallback(async () => {
-    if (primedRef.current) return;
+  const updateUnseenCount = useCallback(async () => {
     try {
       const orders = await loadOrders();
-      snapshotFromOrders(orders);
-      setUnseenPedidos(0);
-    } catch {
-      /* ignore */
-    }
-  }, [loadOrders, snapshotFromOrders]);
-
-  const refreshUnseenCount = useCallback(async () => {
-    try {
-      const orders = await loadOrders();
-      if (!primedRef.current) {
-        snapshotFromOrders(orders);
-        setUnseenPedidos(0);
-        return;
-      }
-      const n = orders.filter((o) => !ackIdsRef.current.has(o.id)).length;
+      const n = orders.filter(
+        (o) => o.status === "novo" && !viewedIdsRef.current.has(o.id),
+      ).length;
       setUnseenPedidos(n);
     } catch {
       /* ignore */
     }
-  }, [loadOrders, snapshotFromOrders]);
-
-  const acknowledgePedidosArea = useCallback(async () => {
-    try {
-      const orders = await loadOrders();
-      snapshotFromOrders(orders);
-      setUnseenPedidos(0);
-    } catch {
-      /* ignore */
-    }
-  }, [loadOrders, snapshotFromOrders]);
+  }, [loadOrders]);
 
   useEffect(() => {
-    void primeOnce();
-  }, [primeOnce]);
+    setViewedIds(loadViewedIds());
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
-    if (!pathname.startsWith("/admin/pedidos")) return;
-    void acknowledgePedidosArea();
-  }, [pathname, acknowledgePedidosArea]);
+    if (!hydrated) return;
+    void updateUnseenCount();
+  }, [hydrated, viewedIds, updateUnseenCount]);
 
   useEffect(() => {
     const s = getSession();
@@ -115,7 +118,7 @@ export function AdminOrderNotificationProvider({
         try {
           const data = JSON.parse(event.data) as { type?: string };
           if (data.type === "orders.updated") {
-            void refreshUnseenCount();
+            void updateUnseenCount();
           }
         } catch {
           /* ignore */
@@ -137,10 +140,34 @@ export function AdminOrderNotificationProvider({
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       ws?.close();
     };
-  }, [refreshUnseenCount]);
+  }, [updateUnseenCount]);
+
+  const isPedidoNovoNaoAberto = useCallback(
+    (order: { id: string; status: OrderStatus }) =>
+      order.status === "novo" && !viewedIds.has(order.id),
+    [viewedIds],
+  );
+
+  const markPedidoDetalheAberto = useCallback((orderId: string) => {
+    const id = orderId.trim();
+    if (!id) return;
+    setViewedIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      persistViewedIds(next);
+      return next;
+    });
+  }, []);
+
+  const value: Ctx = {
+    unseenPedidos,
+    isPedidoNovoNaoAberto,
+    markPedidoDetalheAberto,
+  };
 
   return (
-    <AdminOrderNotifContext.Provider value={{ unseenPedidos }}>
+    <AdminOrderNotifContext.Provider value={value}>
       {children}
     </AdminOrderNotifContext.Provider>
   );

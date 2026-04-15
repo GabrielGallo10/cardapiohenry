@@ -27,6 +27,7 @@ import {
   adminAccentFromIndex,
 } from "@/lib/admin-card-accents";
 import { AdminConfirmModal } from "@/components/admin-confirm-modal";
+import { useAdminUnseenPedidos } from "@/components/admin-order-notification-provider";
 
 const ALL_STATUSES = Object.keys(ORDER_STATUS_LABELS) as OrderStatus[];
 
@@ -47,6 +48,7 @@ function formatOrderCompact(iso: string) {
 
 export default function AdminPedidosPage() {
   const router = useRouter();
+  const { isPedidoNovoNaoAberto } = useAdminUnseenPedidos();
   const { orders, loading, error, refresh, setStatus, clearAll } = useOrders();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "todos">(
     "todos",
@@ -182,6 +184,7 @@ export default function AdminPedidosPage() {
             <ul className="space-y-2 sm:space-y-3">
               {visible.map((order, index) => {
                 const accent = adminAccentFromIndex(index);
+                const destaqueNovo = isPedidoNovoNaoAberto(order);
                 const total = orderTotal(order.items);
                 const phoneDigits = order.customerPhone.replace(/\D/g, "");
                 const phoneDisplay =
@@ -193,7 +196,11 @@ export default function AdminPedidosPage() {
                 return (
                   <li
                     key={order.id}
-                    className={`group relative overflow-hidden rounded-2xl border border-zinc-200/90 bg-white text-left shadow-sm ring-1 ring-zinc-100/80 transition duration-300 hover:-translate-y-0.5 hover:shadow-xl sm:rounded-3xl ${ADMIN_LIST_CARD_HOVER[accent]}`}
+                    className={`group relative overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-xl sm:rounded-3xl ${ADMIN_LIST_CARD_HOVER[accent]} ${
+                      destaqueNovo
+                        ? "border-red-300/90 ring-2 ring-red-500/75 ring-offset-2 ring-offset-zinc-50 shadow-lg shadow-red-200/35"
+                        : "border-zinc-200/90 ring-1 ring-zinc-100/80"
+                    }`}
                   >
                     <div
                       className={`pointer-events-none absolute inset-x-0 top-0 z-30 h-1 ${ADMIN_CARD_TOP_BAR[accent]}`}
