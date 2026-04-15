@@ -196,12 +196,18 @@ export default function AdminPedidosPage() {
                 return (
                   <li
                     key={order.id}
-                    className={`group relative overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-xl sm:rounded-3xl ${ADMIN_LIST_CARD_HOVER[accent]} ${
-                      destaqueNovo
-                        ? "border-red-300/90 ring-2 ring-red-500/75 ring-offset-2 ring-offset-zinc-50 shadow-lg shadow-red-200/35"
-                        : "border-zinc-200/90 ring-1 ring-zinc-100/80"
-                    }`}
+                    className={`group relative overflow-hidden rounded-2xl border border-zinc-200/90 bg-white text-left shadow-sm ring-1 ring-zinc-100/80 transition duration-300 hover:-translate-y-0.5 hover:shadow-xl sm:rounded-3xl ${ADMIN_LIST_CARD_HOVER[accent]}`}
                   >
+                    {destaqueNovo ? (
+                      <span
+                        className="pointer-events-none absolute right-2 top-2 z-[35] flex size-3 items-center justify-center sm:right-3 sm:top-3"
+                        title="Pedido novo"
+                        aria-hidden
+                      >
+                        <span className="absolute inline-flex size-3.5 animate-ping rounded-full bg-red-500/35 motion-reduce:animate-none" />
+                        <span className="relative size-2 rounded-full bg-red-500 shadow-sm ring-[2.5px] ring-white" />
+                      </span>
+                    ) : null}
                     <div
                       className={`pointer-events-none absolute inset-x-0 top-0 z-30 h-1 ${ADMIN_CARD_TOP_BAR[accent]}`}
                       aria-hidden
